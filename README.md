@@ -11,7 +11,12 @@ Es ist eine **einzelne HTML-Datei** ([`index.html`](index.html)) – keine
 Installation, kein Build, keine externen Abhängigkeiten. Einfach im Browser öffnen
 (bzw. über Codeberg Pages aufrufen).
 
-**Es werden keine Daten gespeichert.** Alles lebt nur im geöffneten Browser-Tab.
+**Es werden keine Daten auf einem Server gespeichert.** Alles lebt nur im geöffneten
+Browser-Tab. Damit ein versehentliches Neuladen den Coach nicht seine Einträge kostet,
+hält der **Coach** seinen Stand zusätzlich nur **lokal im eigenen Tab**
+(`sessionStorage`, an die Sitzungs-ID gebunden) – das wird beim Schließen des Tabs
+automatisch gelöscht. Der Coachee speichert nichts (er bekommt den Stand beim
+Verbinden vom Coach).
 
 ### Ansichten (Rollen)
 
@@ -61,7 +66,7 @@ kommentierte Abschnitte gegliedert:
 ```
 1. CSS          – ruhiges, reizarmes Layout
 2. HTML-Gerüst  – Kopfzeile, Reiter, Phasen-Panels
-3. State        – zentrales Zustandsobjekt (nichts wird gespeichert)
+3. State        – zentrales Zustandsobjekt (Coach: lokal im Tab via sessionStorage)
 4. Sync         – austauschbarer Übertragungskanal Coach ↔ Coachee
 5. Render       – Zustand -> Oberfläche
 6. Tools        – Coaching-Tools (aktuell: Skala)

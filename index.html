@@ -14,9 +14,10 @@
   ============================================================================
   GROW – Grafische Begleitung für Online-Coachings
   ============================================================================
-  Single-File-Web-App. Keine Datenspeicherung. Einzige externe Abhängigkeit:
-  PeerJS (oben per CDN, nur für die Live-Übertragung) – ohne Netz läuft die App
-  weiter solo.
+  Single-File-Web-App. Keine Server-Speicherung; der Coach hält seinen Stand nur
+  lokal im eigenen Tab (sessionStorage, gegen versehentliches Neuladen; wird beim
+  Tab-Schließen gelöscht). Einzige externe Abhängigkeit: PeerJS (oben per CDN, nur
+  für die Live-Übertragung) – ohne Netz läuft die App weiter solo.
 
   Idee: Ein Coach führt durch die vier GROW-Phasen (Goal, Reality, Options,
   Will). Die App stellt jede Phase reizarm und klar strukturiert dar und wird
@@ -234,16 +235,16 @@
 <div class="overlay" id="privacyOverlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
     <h3 id="privacyTitle">Kurz zum Datenschutz</h3>
-    <p><strong>Es werden keine Daten gespeichert.</strong> Alle Eingaben bestehen nur
-       in diesem Browser-Tab und sind weg, sobald der Tab geschlossen oder die Seite
-       neu geladen wird.</p>
+    <p><strong>Es werden keine Daten auf einem Server gespeichert.</strong> Alle
+       Eintragungen bleiben ausschließlich lokal im Browser – und nur, solange der
+       Coaching-Tab geöffnet ist. Beim Schließen des Tabs werden sie gelöscht.</p>
     <p>Die Verbindung zwischen Coach und Teilnehmer:in ist <strong>direkt und
        Ende-zu-Ende-verschlüsselt</strong> – die Inhalte laufen über <strong>keinen
        fremden Server</strong>. Der Verbindungsvermittler stellt nur den Kontakt her
        und sieht die Inhalte nicht.</p>
-    <p class="warn">Bitte dieses Fenster geöffnet lassen und die Seite während des
-       Coachings <strong>nicht aktualisieren (neu laden)</strong> – sonst gehen die
-       Eintragungen verloren.</p>
+    <p class="warn">Solange der Coach-Tab geöffnet bleibt, sind die Eintragungen
+       gesichert – auch ein Neuladen ist unproblematisch. Wird der Tab jedoch
+       <strong>geschlossen</strong>, sind alle Eintragungen unwiderruflich weg.</p>
     <div class="modal-actions">
       <button class="btn" id="privacyOk">Verstanden</button>
     </div>
@@ -331,7 +332,8 @@
 
 <script>
 /* ==========================================================================
-   3. STATE – ein zentrales Objekt. Bewusst NICHT gespeichert.
+   3. STATE – ein zentrales Objekt. Nicht auf einem Server gespeichert; der
+   Coach hält es nur lokal im Tab (sessionStorage, siehe COACH-RELOAD-SCHUTZ).
    ========================================================================== */
 const state = {
   started: false,          // wurde "Weiter" gedrückt? -> Coachingziel angeheftet
@@ -360,6 +362,25 @@ if (!SESSION && ROLE === 'coach'){
   const u = new URL(location.href);
   u.searchParams.set('session', SESSION);
   history.replaceState(null, '', u);                  // Raum-ID in der Adresse verankern
+}
+
+/* ==========================================================================
+   COACH-RELOAD-SCHUTZ – nur der Coach hält seinen Stand im eigenen Browser
+   (sessionStorage), an die SESSION gebunden. Überlebt Reload/Absturz,
+   wird beim Schließen des Tabs automatisch gelöscht. Kein Server, rein lokal.
+   Der Coachee braucht das nicht: er bekommt den Stand beim (Neu-)Verbinden
+   ohnehin vom Coach.
+   ========================================================================== */
+const STORE_KEY = SESSION ? 'grow:' + SESSION : null;
+function persist(){
+  if (ROLE !== 'coach' || !STORE_KEY) return;
+  try { sessionStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){}
+}
+if (ROLE === 'coach' && STORE_KEY){
+  try {
+    const saved = sessionStorage.getItem(STORE_KEY);
+    if (saved) Object.assign(state, JSON.parse(saved));   // zuletzt gehaltenen Stand zurückholen
+  } catch(e){}
 }
 
 /* ==========================================================================
@@ -455,16 +476,16 @@ const Sync = (() => {
   };
 })();
 
-// Momentaufnahme des Zustands verschicken (nach jeder Änderung)
-function broadcast(){ Sync.send(snapshot()); }
+// Momentaufnahme des Zustands verschicken (nach jeder Änderung) + lokal sichern
+function broadcast(){ persist(); Sync.send(snapshot()); }
 
 Sync.onReceive((incoming) => {
   Sync.applyQuiet(() => {
     Object.assign(state, incoming);
     render({ keepFocus:true });
   });
-  // Coach hat eine Coachee-Änderung übernommen -> an alle weiterreichen
-  if (ROLE === 'coach') Sync.send(snapshot());
+  // Coach hat eine Coachee-Änderung übernommen -> lokal sichern + an alle weiterreichen
+  if (ROLE === 'coach'){ persist(); Sync.send(snapshot()); }
 });
 
 /* ==========================================================================
