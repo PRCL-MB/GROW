@@ -408,8 +408,26 @@ const Sync = (() => {
 
   // --- b) WebRTC über PeerJS ---
   const conns = new Set();            // offene DataConnections
-  let peer = null, retryTimer = null;
+  let peer = null, retryTimer = null, connectTimer = null;
   const COACH_ID = 'grow-' + SESSION; // fester Peer-Name des Coaches
+
+  /* ---- ICE-Server (Verbindungsaufbau) -----------------------------------
+     STUN allein reicht in strengen Netzen (Mobilfunk-CGNAT, manche Firmen-
+     WLANs) NICHT – dort ist ein TURN-Relay nötig, der die (weiterhin Ende-zu-
+     Ende-verschlüsselten) Pakete durchreicht. TURN sieht die Inhalte nicht.
+     Kostenlose öffentliche TURN-Server mit festen Zugangsdaten gibt es nicht
+     mehr zuverlässig. Zum Aktivieren hier eigene TURN-Zugangsdaten eintragen
+     (z. B. kostenloser Metered/Open-Relay-Account oder eigener coturn):
+       { urls:'turn:DEIN-HOST:443', username:'…', credential:'…' },
+       { urls:'turn:DEIN-HOST:443?transport=tcp', username:'…', credential:'…' }
+     Port 443/TCP ist wichtig, um strenge Firewalls zu durchdringen. */
+  const ICE = { iceServers: [
+    { urls: ['stun:stun.l.google.com:19302',
+             'stun:stun1.l.google.com:19302',
+             'stun:stun2.l.google.com:19302'] }
+    // <-- TURN-Einträge hier ergänzen, sobald vorhanden
+  ] };
+  const PEER_OPTS = { config: ICE };
 
   function deliver(data){ if (cb && !muted) cb(data); }
 
@@ -425,6 +443,7 @@ const Sync = (() => {
 
   function wireConn(c){
     c.on('open', () => {
+      clearTimeout(connectTimer); connectTimer = null;
       conns.add(c); setStatus('ok');
       if (ROLE === 'coach') { try { c.send(snapshot()); } catch(e){} } // Neuen sofort abgleichen
     });
@@ -438,21 +457,27 @@ const Sync = (() => {
 
   function initPeer(){
     if (typeof Peer === 'undefined'){ setStatus('off'); return; }   // CDN nicht geladen -> solo
+    // Coachee: wenn nach 15s keine Verbindung steht, deutlichen Hinweis zeigen
+    // (im Hintergrund wird weiter versucht -> klappt es doch, springt es auf 'ok').
+    // Nur EINMAL scharf schalten, damit die 2,5s-Retries den Timer nicht zurücksetzen.
+    if (ROLE === 'coachee' && !connectTimer){
+      connectTimer = setTimeout(() => { if (!conns.size) setStatus('fail'); }, 15000);
+    }
     try {
       if (ROLE === 'coach'){
-        peer = new Peer(COACH_ID);
+        peer = new Peer(COACH_ID, PEER_OPTS);
         peer.on('open', () => setStatus('wait'));
         peer.on('connection', wireConn);
       } else {
         setStatus('wait');
-        peer = new Peer();
+        peer = new Peer(undefined, PEER_OPTS);
         peer.on('open', () => wireConn(peer.connect(COACH_ID, { reliable:true })));
       }
       peer.on('disconnected', () => { try { peer.reconnect(); } catch(e){} });
       peer.on('error', (err) => {
         // Häufig: Coach noch nicht da (peer-unavailable) oder ID kurz belegt.
         // In beiden Fällen nach kurzer Pause neu versuchen.
-        setStatus(conns.size ? 'ok' : 'wait');
+        setStatus(conns.size ? 'ok' : (lastStatus.kind === 'fail' ? 'fail' : 'wait'));
         clearTimeout(retryTimer);
         retryTimer = setTimeout(() => { try{ peer && peer.destroy(); }catch(e){} initPeer(); }, 2500);
       });
@@ -760,10 +785,12 @@ Sync.onStatus(({ kind, peers }) => {
     txt.textContent = kind === 'ok'
         ? (peers === 1 ? 'Teilnehmer verbunden' : peers + ' Teilnehmer verbunden')
       : kind === 'wait' ? 'warte auf Teilnehmer …'
+      : kind === 'fail' ? 'Verbindung schwierig – evtl. Netz wechseln'
       : 'nur lokal (kein Vermittler erreichbar)';
   } else {
     txt.textContent = kind === 'ok' ? 'verbunden'
       : kind === 'wait' ? 'verbinde …'
+      : kind === 'fail' ? 'keine Verbindung – anderes Netz (WLAN) probieren'
       : 'nicht verbunden';
   }
 });
