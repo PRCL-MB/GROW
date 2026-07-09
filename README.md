@@ -62,8 +62,11 @@ Link-Fragment, das nie an den Server geht). Er speichert ohnehin nichts.
    wird das Coachingziel dauerhaft oben angeheftet und die Phasen-Reiter erscheinen.
 2. **Reality**: großes Textfeld + Tool **Skala** (Bereich 0–10 / 0–100, bis zu zwei
    farblich getrennte Regler per Klick oder Ziehen, frei benennbar).
-3. **Options** / **Will**: aktuell je ein Textfeld (weitere Tools folgen).
-4. **Als PDF exportieren**: über die Druckfunktion des Browsers („Als PDF speichern").
+3. **Options**: Ideen-/Optionsliste – Einträge sammeln und mit **Sternen (0–5)**
+   priorisieren, plus optionales Notizfeld.
+4. **Will**: Maßnahmenliste – konkrete Schritte mit **„bis wann"** und
+   **Erledigt-Haken**, plus optionales Notizfeld.
+5. **Als PDF exportieren**: über die Druckfunktion des Browsers („Als PDF speichern").
 
 ## Mitentwickeln
 

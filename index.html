@@ -186,6 +186,21 @@
   .hint{ color:var(--ink-soft); font-size:.85rem; }
   .add-tool-row{ margin-top:10px; }
 
+  /* Listen-Tools (Options / Will) */
+  .itemlist{ display:flex; flex-direction:column; gap:8px; }
+  .item{ display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:8px 10px; box-shadow:var(--shadow); }
+  .item .item-text{ flex:1; min-width:0; border:none; background:none; font:inherit; color:var(--ink); padding:4px 2px; }
+  .item .item-text:focus{ outline:none; }
+  .item.done .item-text{ text-decoration:line-through; color:var(--ink-soft); }
+  .item .item-until{ width:132px; flex:none; border:none; background:none; font:inherit; font-size:.88rem; color:var(--ink-soft); padding:4px 2px; border-left:1px dashed var(--line); }
+  .item .item-until:focus{ outline:none; color:var(--ink); }
+  .item .item-done{ width:20px; height:20px; flex:none; accent-color:var(--accent); cursor:pointer; }
+  .item .item-del{ flex:none; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:1.1rem; line-height:1; padding:2px 6px; border-radius:6px; }
+  .item .item-del:hover{ color:#b4523f; }
+  .stars{ display:inline-flex; gap:1px; flex:none; }
+  .stars .star{ cursor:pointer; color:var(--line); font-size:1.15rem; line-height:1; padding:2px; user-select:none; }
+  .stars .star.on{ color:#d8a531; }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -304,18 +319,28 @@
   <!-- OPTIONS ------------------------------------------------------------>
   <section class="phase" data-phase="options" id="phase-options">
     <h2 class="phase-head">Options</h2>
-    <p class="phase-sub">Welche Möglichkeiten gibt es? Was wäre alles denkbar?</p>
-    <label class="field">
-      <textarea class="text big" id="in-options" placeholder="Ideen, Wege, Alternativen – erst sammeln, dann bewerten …"></textarea>
+    <p class="phase-sub">Welche Möglichkeiten gibt es? Erst sammeln, dann mit Sternen bewerten.</p>
+    <div id="optionsList" class="itemlist"></div>
+    <div class="add-tool-row coach-only">
+      <button class="btn ghost small" id="btnAddOption">+ Option</button>
+    </div>
+    <label class="field" style="margin-top:24px">
+      <span class="lab">Notizen (optional)</span>
+      <textarea class="text" id="in-options" style="min-height:90px" placeholder="Freie Notizen zu den Optionen …"></textarea>
     </label>
   </section>
 
   <!-- WILL --------------------------------------------------------------->
   <section class="phase" data-phase="will" id="phase-will">
     <h2 class="phase-head">Will &nbsp;<span class="hint">(What next)</span></h2>
-    <p class="phase-sub">Was sind die nächsten konkreten Schritte?</p>
-    <label class="field">
-      <textarea class="text big" id="in-will" placeholder="Erster Schritt, bis wann, woran merke ich den Erfolg …"></textarea>
+    <p class="phase-sub">Was sind die nächsten konkreten Schritte – und bis wann?</p>
+    <div id="actionsList" class="itemlist"></div>
+    <div class="add-tool-row coach-only">
+      <button class="btn ghost small" id="btnAddAction">+ Maßnahme</button>
+    </div>
+    <label class="field" style="margin-top:24px">
+      <span class="lab">Notizen (optional)</span>
+      <textarea class="text" id="in-will" style="min-height:90px" placeholder="Freie Notizen …"></textarea>
     </label>
   </section>
 
@@ -337,7 +362,9 @@ const state = {
   fields: {                // freie Textinhalte je Feld-ID
     thema:'', ziel:'', prozess:'', reality:'', options:'', will:''
   },
-  scales: []               // Reality-Tool: [{id,label,max,markers:{m1:%,m2:null|%}}]
+  scales: [],              // Reality-Tool: [{id,phase,label,max,markers:{m1:%,m2:null|%}}]
+  options: [],             // Options-Tool: [{id,text,score(0..5)}]
+  actions: []              // Will-Tool:    [{id,text,until,done}]
 };
 
 // Rolle aus der URL bestimmen
@@ -571,8 +598,24 @@ function render(opts={}){
   // "Weiter" nur vor dem Start zeigen – danach wird über die Reiter navigiert
   $('.weiter-row').style.display = state.started ? 'none' : '';
 
-  // Skalen rendern
+  // Tools rendern
   renderScales(opts);
+  renderOptions(opts);
+  renderActions(opts);
+}
+
+/* ==========================================================================
+   Kleine Helfer für Listen-Tools (Options / Will)
+   Baut Zeilen nur neu, wenn sich die IDs ändern; sonst nur Werte aktualisieren.
+   ========================================================================== */
+function syncList(listEl, items, build, update){
+  const existing = [...listEl.querySelectorAll('.item')].map(e => e.dataset.id);
+  const wanted = items.map(i => i.id);
+  if (existing.join(',') !== wanted.join(',')){
+    listEl.innerHTML = '';
+    items.forEach(i => listEl.appendChild(build(i)));
+  }
+  items.forEach(update);
 }
 
 /* ==========================================================================
@@ -746,6 +789,101 @@ function updateScaleEl(s){
 }
 
 /* ==========================================================================
+   6b. TOOL: Options-Liste – Ideen sammeln + mit Sternen (0..5) priorisieren.
+   ========================================================================== */
+function addOption(){
+  state.options.push({ id:'o'+Date.now(), text:'', score:0 });
+  render(); broadcast();
+}
+function renderOptions(opts={}){ syncList($('#optionsList'), state.options, buildOptionEl, updateOptionEl); }
+
+function buildOptionEl(o){
+  const el = document.createElement('div');
+  el.className = 'item'; el.dataset.id = o.id;
+  el.innerHTML =
+    '<input class="item-text" placeholder="Option / Idee …">' +
+    '<span class="stars" title="Priorität">' +
+      [1,2,3,4,5].map(n => `<span class="star" data-n="${n}">☆</span>`).join('') +
+    '</span>' +
+    '<button class="item-del coach-only" title="Entfernen">✕</button>';
+
+  const id = o.id;
+  const live = () => state.options.find(x => x.id === id);
+
+  $('.item-text', el).addEventListener('input', e => {
+    const it = live(); if (!it) return;
+    it.text = e.target.value; broadcast();
+  });
+  $$('.star', el).forEach(st => st.addEventListener('click', () => {
+    const it = live(); if (!it) return;
+    const n = Number(st.dataset.n);
+    it.score = (it.score === n) ? n - 1 : n;   // nochmal auf denselben Stern -> eins runter
+    updateOptionEl(it); broadcast();
+  }));
+  $('.item-del', el).addEventListener('click', () => {
+    state.options = state.options.filter(x => x.id !== id); render(); broadcast();
+  });
+  return el;
+}
+function updateOptionEl(o){
+  const el = $(`#optionsList .item[data-id="${o.id}"]`); if (!el) return;
+  const t = $('.item-text', el);
+  if (document.activeElement !== t && t.value !== o.text) t.value = o.text;
+  $$('.star', el).forEach((st, i) => {
+    const on = i < o.score;
+    st.textContent = on ? '★' : '☆';
+    st.classList.toggle('on', on);
+  });
+}
+
+/* ==========================================================================
+   6c. TOOL: Will-Liste – konkrete Maßnahmen mit „bis wann" + Erledigt-Haken.
+   ========================================================================== */
+function addAction(){
+  state.actions.push({ id:'a'+Date.now(), text:'', until:'', done:false });
+  render(); broadcast();
+}
+function renderActions(opts={}){ syncList($('#actionsList'), state.actions, buildActionEl, updateActionEl); }
+
+function buildActionEl(a){
+  const el = document.createElement('div');
+  el.className = 'item'; el.dataset.id = a.id;
+  el.innerHTML =
+    '<input type="checkbox" class="item-done" title="Erledigt">' +
+    '<input class="item-text" placeholder="Nächster Schritt / Maßnahme …">' +
+    '<input class="item-until" placeholder="bis wann?">' +
+    '<button class="item-del coach-only" title="Entfernen">✕</button>';
+
+  const id = a.id;
+  const live = () => state.actions.find(x => x.id === id);
+
+  $('.item-done', el).addEventListener('change', e => {
+    const it = live(); if (!it) return;
+    it.done = e.target.checked; el.classList.toggle('done', it.done); broadcast();
+  });
+  $('.item-text', el).addEventListener('input', e => {
+    const it = live(); if (!it) return;
+    it.text = e.target.value; broadcast();
+  });
+  $('.item-until', el).addEventListener('input', e => {
+    const it = live(); if (!it) return;
+    it.until = e.target.value; broadcast();
+  });
+  $('.item-del', el).addEventListener('click', () => {
+    state.actions = state.actions.filter(x => x.id !== id); render(); broadcast();
+  });
+  return el;
+}
+function updateActionEl(a){
+  const el = $(`#actionsList .item[data-id="${a.id}"]`); if (!el) return;
+  const t = $('.item-text', el), u = $('.item-until', el), d = $('.item-done', el);
+  if (document.activeElement !== t && t.value !== a.text)  t.value  = a.text;
+  if (document.activeElement !== u && u.value !== a.until) u.value = a.until;
+  if (d.checked !== !!a.done) d.checked = !!a.done;
+  el.classList.toggle('done', !!a.done);
+}
+
+/* ==========================================================================
    7. PDF-Export – über die Druckfunktion des Browsers ("Als PDF speichern").
    Bewusst ohne externe Bibliothek: robust, offline, keine Abhängigkeiten.
    ========================================================================== */
@@ -783,6 +921,8 @@ $$('#tabs button').forEach(b => b.addEventListener('click', () => {
 
 $('#btnAddScale').addEventListener('click', () => addScale('reality'));
 $('#btnAddScaleGoal').addEventListener('click', () => addScale('goal'));
+$('#btnAddOption').addEventListener('click', addOption);
+$('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
 
 // Rollenhinweis + Verbindungsstatus
