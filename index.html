@@ -175,7 +175,8 @@
   .range-toggle button{ background:none; border:none; padding:5px 12px; font-size:.82rem; color:var(--ink-soft); }
   .range-toggle button[aria-pressed="true"]{ background:var(--accent); color:#fff; }
 
-  .scale{ position:relative; height:56px; margin:26px 4px 8px; user-select:none; touch-action:none; }
+  .scale{ position:relative; height:60px; margin:26px 4px 8px; user-select:none; -webkit-user-select:none; touch-action:none; cursor:pointer; }
+  .scale *{ touch-action:none; }   /* iOS Safari: Touch nicht als Scrollgeste werten */
   .scale .track{ position:absolute; top:50%; left:0; right:0; height:6px; transform:translateY(-50%); background:var(--line); border-radius:999px; cursor:pointer; }
   .scale .ticks{ position:absolute; top:50%; left:0; right:0; display:flex; justify-content:space-between; pointer-events:none; }
   .scale .ticks span{ font-size:.7rem; color:var(--ink-soft); transform:translateY(14px); }
@@ -598,35 +599,67 @@ function buildScaleEl(s){
     render(); broadcast();
   });
 
-  // Klick auf die Spur setzt den zuletzt aktiven Regler (Standard: m1)
+  // Zeigen/Ziehen: die GESAMTE Skala ist Touch-Ziel (robust für Maus + iOS-Touch).
+  // Ein Tipp setzt den nächstgelegenen Regler, Ziehen bewegt ihn.
   const scale = $('.scale', el);
-  const track = $('.track', el);
-  track.addEventListener('pointerdown', e => {
-    const which = s.markers.m2 !== null ? (el._lastActive || 'm1') : 'm1';
-    setMarkerFromEvent(s, scale, which, e); broadcast();
+  scale.addEventListener('pointerdown', e => {
+    e.preventDefault();                       // keine Scroll-/Zoomgeste auf iOS
+    const which = pickMarker(s, scale, e);
+    el._lastActive = which;
+    draggingMarker = { id: s.id, which };
+    try { scale.setPointerCapture(e.pointerId); } catch(_){}
+    setMarkerFromEvent(s, scale, which, e);
+    throttledBroadcast();
   });
-  // Regler ziehen
-  $$('.marker', el).forEach(mk => {
-    mk.addEventListener('pointerdown', e => {
-      e.stopPropagation();
-      const which = mk.dataset.m; el._lastActive = which;
-      mk.setPointerCapture(e.pointerId);
-      const move = ev => { setMarkerFromEvent(s, scale, which, ev); broadcast(); };
-      const up = () => { mk.removeEventListener('pointermove', move); mk.removeEventListener('pointerup', up); };
-      mk.addEventListener('pointermove', move);
-      mk.addEventListener('pointerup', up);
-    });
+  scale.addEventListener('pointermove', e => {
+    if (!draggingMarker || draggingMarker.id !== s.id) return;
+    setMarkerFromEvent(s, scale, draggingMarker.which, e);
+    throttledBroadcast();
   });
+  const endDrag = () => {
+    if (draggingMarker && draggingMarker.id === s.id){
+      draggingMarker = null;
+      broadcast();                            // finale, exakte Position sicher übertragen
+    }
+  };
+  scale.addEventListener('pointerup', endDrag);
+  scale.addEventListener('pointercancel', endDrag);   // iOS: Geste abgebrochen -> sauber beenden
   return el;
+}
+
+// Welcher Regler soll bewegt werden? Der dem Fingertipp am nächsten liegende.
+function pickMarker(s, scaleEl, ev){
+  if (s.markers.m2 === null) return 'm1';
+  const r = scaleEl.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(100, ((ev.clientX - r.left) / r.width) * 100));
+  return Math.abs(pct - s.markers.m1) <= Math.abs(pct - s.markers.m2) ? 'm1' : 'm2';
+}
+
+// Während des Ziehens die Übertragung drosseln (Leading + Trailing, max ~1/70ms),
+// sonst überflutet ein Drag den WebRTC-Kanal – v.a. Richtung Smartphone.
+let draggingMarker = null;   // {id, which} des gerade gezogenen Reglers (Echo-Schutz)
+let _scaleTimer = null, _scalePending = false;
+function throttledBroadcast(){
+  if (_scaleTimer){ _scalePending = true; return; }
+  broadcast();
+  _scaleTimer = setTimeout(() => {
+    _scaleTimer = null;
+    if (_scalePending){ _scalePending = false; broadcast(); }
+  }, 70);
 }
 
 function setMarkerFromEvent(s, scaleEl, which, ev){
   const r = scaleEl.getBoundingClientRect();
   let pct = ((ev.clientX - r.left) / r.width) * 100;
-  pct = Math.max(0, Math.min(100, pct));
-  s.markers[which] = Math.round(pct);
-  scaleEl.closest('.tool')._lastActive = which;
-  updateScaleEl(s);
+  pct = Math.round(Math.max(0, Math.min(100, pct)));
+  s.markers[which] = pct;
+  const tool = scaleEl.closest('.tool'); tool._lastActive = which;
+  // Gezielt & sofort DEN gezogenen Regler lokal aktualisieren (umgeht den
+  // Echo-Schutz in updateScaleEl, der nur eingehende Fremd-Updates betrifft).
+  const mk = $(`.marker.${which}`, tool);
+  mk.hidden = false;
+  mk.style.left = pct + '%';
+  $('.val', mk).textContent = Math.round(pct * s.max / 100);
 }
 
 function updateScaleEl(s){
@@ -647,7 +680,9 @@ function updateScaleEl(s){
     const pct = s.markers[m];
     if (pct === null){ mk.hidden = true; return; }
     mk.hidden = false;
-    mk.style.left = pct + '%';
+    // Den gerade selbst gezogenen Regler NICHT durch eingehende Echos zurückspringen lassen
+    if (!(draggingMarker && draggingMarker.id === s.id && draggingMarker.which === m))
+      mk.style.left = pct + '%';
     $('.val', mk).textContent = Math.round(pct * s.max / 100);
   });
 }
