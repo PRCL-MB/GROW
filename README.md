@@ -39,8 +39,10 @@ Coach und Teilnehmer:in sehen dieselbe, live aktualisierte Seite. Technik:
   Teilnehmer:in verbinden sich beide nach außen zum Relay und tauschen darüber ihre
   Einträge aus. **Zuverlässig in allen Netzen** – auch Mobilfunk und Firmen-WLAN –
   ohne NAT/STUN/TURN-Gefrickel.
-- Der Relay **reicht die Nachrichten je Raum nur durch und speichert nichts**
-  (TLS-verschlüsselte `wss://`-Verbindung).
+- Die Inhalte sind **Ende-zu-Ende-verschlüsselt** (AES-GCM). Der Schlüssel steht im
+  **Link-Fragment** (`#k=…`), das der Browser **nie an einen Server sendet** – der
+  Relay reicht nur verschlüsselte Nachrichten durch, **speichert nichts** und kann
+  die Inhalte **nicht mitlesen**.
 - Der **Coach ist die Quelle der Wahrheit**: Änderungen der Teilnehmer:in gehen an
   den Coach, der sie übernimmt und an alle verteilt.
 - Ist kein Relay konfiguriert oder erreichbar, läuft die App **weiter solo**
@@ -50,10 +52,9 @@ Coach und Teilnehmer:in sehen dieselbe, live aktualisierte Seite. Technik:
 ~5 Minuten, kostenlos auf Deno Deploy). Danach die `wss://`-URL in `index.html`
 unter `RELAY_URL` eintragen.
 
-**Datenschutz-Hinweis:** Der Relay läuft auf eurer eigenen Deno-Deploy-Instanz und
-speichert nichts, sieht die durchgereichten Inhalte technisch aber im Klartext. Für
-echte Ende-zu-Ende-Verschlüsselung (auch der Relay soll nicht mitlesen können) lässt
-sich eine Verschlüsselungsschicht nachrüsten.
+**Datenschutz:** Die Inhalte sind **Ende-zu-Ende-verschlüsselt** – der Relay reicht
+nur verschlüsselte Nachrichten durch und kann sie nicht mitlesen (Schlüssel im
+Link-Fragment, das nie an den Server geht). Er speichert ohnehin nichts.
 
 ### Ablauf
 

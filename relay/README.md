@@ -38,10 +38,9 @@ Coach und Teilnehmer:in über diesen Relay.
   um sie weiterzureichen. Ist niemand mehr im Raum, ist alles weg.
 - **Getrennte Räume:** Jedes Coaching hat seine eigene `session`-ID; der Relay
   vermischt verschiedene Coachings nicht.
-- **Transportverschlüsselung:** Die Verbindung läuft über `wss://` (TLS). Hinweis:
-  Der Relay-Server selbst sieht die Inhalte technisch im Klartext (er läuft aber auf
-  eurer eigenen Deno-Deploy-Instanz und speichert nichts). Wer echte
-  Ende-zu-Ende-Verschlüsselung möchte (auch der Relay soll nicht mitlesen können),
-  sagt Bescheid – das lässt sich nachrüsten.
+- **Ende-zu-Ende-verschlüsselt:** Die App verschlüsselt die Inhalte, bevor sie den
+  Browser verlassen (AES-GCM; Schlüssel steckt im Link-Fragment `#k=…`, das nie an
+  einen Server geht). Der Relay reicht also nur **verschlüsselte** Nachrichten durch
+  und kann sie **nicht mitlesen** – zusätzlich zur `wss://`-Transportverschlüsselung.
 - **Kosten:** Für Coaching-Datenmengen liegt das locker im kostenlosen Kontingent
   von Deno Deploy.

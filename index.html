@@ -233,10 +233,11 @@
     <p><strong>Es werden keine Daten auf einem Server gespeichert.</strong> Alle
        Eintragungen bleiben ausschließlich lokal im Browser – und nur, solange der
        Coaching-Tab geöffnet ist. Beim Schließen des Tabs werden sie gelöscht.</p>
-    <p>Die Einträge werden zwischen Coach und Teilnehmer:in über einen
-       <strong>kleinen eigenen Vermittlungs-Server</strong> ausgetauscht
-       (TLS-verschlüsselte Verbindung). Dieser reicht die Nachrichten nur durch
-       und <strong>speichert nichts</strong>.</p>
+    <p>Die Einträge sind zwischen Coach und Teilnehmer:in
+       <strong>Ende-zu-Ende-verschlüsselt</strong>. Der Vermittlungs-Server reicht
+       nur verschlüsselte Nachrichten durch, <strong>speichert nichts</strong> und
+       kann die Inhalte <strong>nicht mitlesen</strong> (der Schlüssel steckt im
+       Link und erreicht den Server nie).</p>
     <p class="warn">Solange der Coach-Tab geöffnet bleibt, sind die Eintragungen
        gesichert – auch ein Neuladen ist unproblematisch. Wird der Tab jedoch
        <strong>geschlossen</strong>, sind alle Eintragungen unwiderruflich weg.</p>
@@ -352,11 +353,52 @@ document.body.dataset.role = ROLE;
    - Coachee: braucht die ID aus dem Link (im Teilnehmer-Link enthalten).
    ========================================================================== */
 let SESSION = params.get('session');
-if (!SESSION && ROLE === 'coach'){
-  SESSION = Math.random().toString(36).slice(2, 8);   // z.B. "k7f3a9"
+
+/* ==========================================================================
+   ENDE-ZU-ENDE-VERSCHLÜSSELUNG
+   Der geheime Schlüssel steht im URL-FRAGMENT (#k=…). Das Fragment wird vom
+   Browser NIE an einen Server gesendet – der Relay bekommt also nur die
+   (verschlüsselten) Nachrichten und den Raum, aber niemals den Schlüssel und
+   niemals den Klartext. Coach erzeugt den Schlüssel und legt ihn in den
+   Teilnehmer-Link; Coachee liest ihn aus dem Link-Fragment.
+   ========================================================================== */
+let SECRET = (location.hash.match(/[#&]k=([^&]+)/) || [])[1] || null;
+if (ROLE === 'coach' && (!SESSION || !SECRET)){
+  if (!SESSION) SESSION = Math.random().toString(36).slice(2, 8);
+  if (!SECRET)  SECRET  = b64url(crypto.getRandomValues(new Uint8Array(32)));  // 256-bit
   const u = new URL(location.href);
   u.searchParams.set('session', SESSION);
-  history.replaceState(null, '', u);                  // Raum-ID in der Adresse verankern
+  u.hash = 'k=' + SECRET;                              // Schlüssel nur im Fragment
+  history.replaceState(null, '', u);
+}
+const cryptoKeyPromise = SECRET ? importAesKey(SECRET) : Promise.resolve(null);
+
+function b64url(bytes){
+  let s = ''; for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function unb64url(str){
+  str = str.replace(/-/g,'+').replace(/_/g,'/'); while (str.length % 4) str += '=';
+  const bin = atob(str), arr = new Uint8Array(bin.length);
+  for (let i=0; i<bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+async function importAesKey(secret){
+  try { return await crypto.subtle.importKey('raw', unb64url(secret), 'AES-GCM', false, ['encrypt','decrypt']); }
+  catch(e){ return null; }
+}
+async function encryptJSON(obj){
+  const key = await cryptoKeyPromise; if (!key) return null;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(obj)));
+  return { iv: b64url(iv), ct: b64url(new Uint8Array(ct)) };
+}
+async function decryptJSON(enc){
+  const key = await cryptoKeyPromise; if (!key) return null;
+  try {
+    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv: unb64url(enc.iv) }, key, unb64url(enc.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  } catch(e){ return null; }
 }
 
 /* ==========================================================================
@@ -385,6 +427,8 @@ if (ROLE === 'coach' && STORE_KEY){
         (auch Mobilfunk/Firmen-WLAN), ohne NAT/STUN/TURN. Der kleine eigene
         Relay-Server (Ordner relay/) reicht Nachrichten je Raum (SESSION) nur
         durch, speichert nichts, und meldet die Teilnehmerzahl (Präsenz).
+        Inhalte sind Ende-zu-Ende-verschlüsselt (Schlüssel im Link-Fragment,
+        siehe oben) – der Relay kann sie nicht mitlesen.
    Der Coach ist die Quelle der Wahrheit: Coachee-Änderungen gehen an den Coach,
    der sie anwendet und an alle Teilnehmer weiterverteilt.
    Die restliche App spricht nur Sync.send() / onReceive() / onStatus() an.
@@ -415,8 +459,14 @@ const Sync = (() => {
   function statusFromPeers(){ if (wsOpen) setStatus(peers >= 2 ? 'ok' : 'wait'); }
 
   function sendAll(data){
-    if (chan) chan.postMessage(data);
-    if (ws && wsOpen){ try { ws.send(JSON.stringify({ t:'state', d:data })); } catch(e){} }
+    if (chan) chan.postMessage(data);                 // gleiches Gerät: Klartext, verlässt den Rechner nicht
+    if (ws && wsOpen){
+      // Über den Relay nur VERSCHLÜSSELT (Klartext-Fallback nur ohne Schlüssel)
+      encryptJSON(data).then(enc => {
+        if (!ws || !wsOpen) return;
+        try { ws.send(JSON.stringify(enc ? { t:'state', enc } : { t:'state', d:data })); } catch(e){}
+      });
+    }
   }
 
   function connect(){
@@ -445,7 +495,8 @@ const Sync = (() => {
         if (peers >= 2){ clearTimeout(failTimer); failTimer = null; }
         statusFromPeers();
       } else if (m.t === 'state'){
-        deliver(m.d);
+        if (m.enc) decryptJSON(m.enc).then(d => { if (d) deliver(d); });   // verschlüsselt
+        else if (m.d) deliver(m.d);                                        // Klartext-Fallback
       }
     };
     ws.onclose = () => {
@@ -576,21 +627,30 @@ function buildScaleEl(s){
       <div class="marker m2" data-m="m2" hidden><span class="val"></span></div>
     </div>`;
 
+  // WICHTIG: Handler dürfen NICHT das übergebene Objekt `s` festhalten – bei
+  // jedem eingehenden Sync ersetzt Object.assign(state, …) die Skalen-Objekte.
+  // Darum immer das AKTUELLE Objekt frisch aus state.scales holen (per ID).
+  const id = s.id;
+  const live = () => state.scales.find(x => x.id === id);
+
   // Bezeichnung (in beiden Rollen editierbar)
   $('.scale-label', el).addEventListener('input', e => {
-    s.label = e.target.value; broadcast();
+    const sc = live(); if (!sc) return;
+    sc.label = e.target.value; broadcast();
   });
   // Entfernen
   $('.js-del', el).addEventListener('click', () => {
-    state.scales = state.scales.filter(x => x.id !== s.id); render(); broadcast();
+    state.scales = state.scales.filter(x => x.id !== id); render(); broadcast();
   });
   // Wertebereich
   $$('.js-range', el).forEach(b => b.addEventListener('click', () => {
-    s.max = Number(b.dataset.max); render(); broadcast();
+    const sc = live(); if (!sc) return;
+    sc.max = Number(b.dataset.max); render(); broadcast();
   }));
   // Zweiten Regler hinzufügen
   $('.js-add2', el).addEventListener('click', () => {
-    if (s.markers.m2 === null) s.markers.m2 = 50;
+    const sc = live(); if (!sc) return;
+    if (sc.markers.m2 === null) sc.markers.m2 = 50;
     el._lastActive = 'm2';   // nächster Klick auf die Skala setzt den zweiten Regler
     render(); broadcast();
   });
@@ -599,21 +659,23 @@ function buildScaleEl(s){
   // Ein Tipp setzt den nächstgelegenen Regler, Ziehen bewegt ihn.
   const scale = $('.scale', el);
   scale.addEventListener('pointerdown', e => {
+    const sc = live(); if (!sc) return;
     e.preventDefault();                       // keine Scroll-/Zoomgeste auf iOS
-    const which = pickMarker(s, scale, e);
+    const which = pickMarker(sc, scale, e);
     el._lastActive = which;
-    draggingMarker = { id: s.id, which };
+    draggingMarker = { id, which };
     try { scale.setPointerCapture(e.pointerId); } catch(_){}
-    setMarkerFromEvent(s, scale, which, e);
+    setMarkerFromEvent(sc, scale, which, e);
     throttledBroadcast();
   });
   scale.addEventListener('pointermove', e => {
-    if (!draggingMarker || draggingMarker.id !== s.id) return;
-    setMarkerFromEvent(s, scale, draggingMarker.which, e);
+    if (!draggingMarker || draggingMarker.id !== id) return;
+    const sc = live(); if (!sc) return;
+    setMarkerFromEvent(sc, scale, draggingMarker.which, e);
     throttledBroadcast();
   });
   const endDrag = () => {
-    if (draggingMarker && draggingMarker.id === s.id){
+    if (draggingMarker && draggingMarker.id === id){
       draggingMarker = null;
       broadcast();                            // finale, exakte Position sicher übertragen
     }
@@ -724,7 +786,8 @@ $('#btnAddScaleGoal').addEventListener('click', () => addScale('goal'));
 $('#btnExport').addEventListener('click', exportPdf);
 
 // Rollenhinweis + Verbindungsstatus
-const coacheeLink = location.origin + location.pathname + '?role=coachee&session=' + SESSION;
+const coacheeLink = location.origin + location.pathname + '?role=coachee&session=' + SESSION +
+                    (SECRET ? '#k=' + SECRET : '');   // Schlüssel im Fragment (Server sieht ihn nie)
 const roleBar = $('#roleBar');
 const infoBtn = '<button class="rb-info" id="btnPrivacy">Datenschutz</button>';
 if (ROLE === 'coachee'){
