@@ -166,6 +166,7 @@
   .scale .ticks{ position:absolute; top:50%; left:0; right:0; display:flex; justify-content:space-between; pointer-events:none; }
   .scale .ticks span{ font-size:.7rem; color:var(--ink-soft); transform:translateY(14px); }
   .marker{ position:absolute; top:50%; width:26px; height:26px; border-radius:50%; transform:translate(-50%,-50%); border:3px solid #fff; box-shadow:var(--shadow); cursor:grab; display:flex; align-items:center; justify-content:center; }
+  .marker[hidden]{ display:none; }
   .marker:active{ cursor:grabbing; }
   .marker .val{ position:absolute; top:-26px; font-size:.75rem; font-weight:700; white-space:nowrap; }
   .marker.m1{ background:var(--accent); }
@@ -233,6 +234,10 @@
       <div class="weiter-row coach-only">
         <button class="btn" id="btnWeiter">Weiter →</button>
       </div>
+    </div>
+    <div id="scaleListGoal"></div>
+    <div class="add-tool-row coach-only" style="text-align:center">
+      <button class="btn ghost small" id="btnAddScaleGoal">+ Skala</button>
     </div>
   </section>
 
@@ -364,22 +369,28 @@ function render(opts={}){
    Modell: { id, label, max(10|100), markers:{ m1:prozent, m2:null|prozent } }
    Prozentwerte 0..100 auf der Spur; angezeigter Wert = Prozent * max / 100.
    ========================================================================== */
-function addScale(){
-  state.scales.push({ id:'s'+Date.now(), label:'Skala', max:10, markers:{ m1:50, m2:null } });
+function addScale(phase){
+  state.scales.push({ id:'s'+Date.now(), phase, label:'Skala', max:10, markers:{ m1:50, m2:null } });
   render(); broadcast();
 }
 
 function renderScales(opts={}){
-  const list = $('#scaleList');
+  // Jede Skala wird in den Container ihrer Phase gerendert
+  renderScaleList($('#scaleList'),     'reality', opts);
+  renderScaleList($('#scaleListGoal'), 'goal',    opts);
+}
+
+function renderScaleList(list, phase, opts={}){
+  const scales = state.scales.filter(s => (s.phase || 'reality') === phase);
   // Nur neu aufbauen, wenn sich Anzahl/IDs geändert haben (sonst Werte updaten)
   const existing = $$('.tool', list).map(t => t.dataset.id);
-  const wanted = state.scales.map(s => s.id);
+  const wanted = scales.map(s => s.id);
   if (existing.join(',') !== wanted.join(',')){
     list.innerHTML = '';
-    state.scales.forEach(s => list.appendChild(buildScaleEl(s)));
+    scales.forEach(s => list.appendChild(buildScaleEl(s)));
   }
   // Werte/Positionen aktualisieren
-  state.scales.forEach(s => updateScaleEl(s));
+  scales.forEach(s => updateScaleEl(s));
 }
 
 function buildScaleEl(s){
@@ -514,7 +525,8 @@ $$('#tabs button').forEach(b => b.addEventListener('click', () => {
   state.phase = b.dataset.phase; render(); broadcast();
 }));
 
-$('#btnAddScale').addEventListener('click', addScale);
+$('#btnAddScale').addEventListener('click', () => addScale('reality'));
+$('#btnAddScaleGoal').addEventListener('click', () => addScale('goal'));
 $('#btnExport').addEventListener('click', exportPdf);
 
 // Rollenhinweis
