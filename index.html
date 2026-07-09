@@ -415,19 +415,31 @@ const Sync = (() => {
      STUN allein reicht in strengen Netzen (Mobilfunk-CGNAT, manche Firmen-
      WLANs) NICHT – dort ist ein TURN-Relay nötig, der die (weiterhin Ende-zu-
      Ende-verschlüsselten) Pakete durchreicht. TURN sieht die Inhalte nicht.
-     Kostenlose öffentliche TURN-Server mit festen Zugangsdaten gibt es nicht
-     mehr zuverlässig. Zum Aktivieren hier eigene TURN-Zugangsdaten eintragen
-     (z. B. kostenloser Metered/Open-Relay-Account oder eigener coturn):
-       { urls:'turn:DEIN-HOST:443', username:'…', credential:'…' },
-       { urls:'turn:DEIN-HOST:443?transport=tcp', username:'…', credential:'…' }
-     Port 443/TCP ist wichtig, um strenge Firewalls zu durchdringen. */
+
+     TURN via kostenlosem Metered/Open-Relay-Account (20 GB/Monat frei):
+     einfach hier App-Subdomain + API-Key eintragen – dann werden die
+     TURN-Zugangsdaten beim Start automatisch geladen. Leer lassen = nur STUN
+     (funktioniert nur in gutmütigen Netzen). Der Key ist im Client sichtbar
+     (client-seitiges TURN); bei Metered domain-/nutzungsbegrenzbar & rotierbar. */
+  const METERED_APP = '';   // z. B. 'growcoaching.metered.live'
+  const METERED_KEY = '';   // API-Key aus dem Metered-Dashboard
+
   const ICE = { iceServers: [
     { urls: ['stun:stun.l.google.com:19302',
              'stun:stun1.l.google.com:19302',
              'stun:stun2.l.google.com:19302'] }
-    // <-- TURN-Einträge hier ergänzen, sobald vorhanden
   ] };
   const PEER_OPTS = { config: ICE };
+
+  // TURN-Zugangsdaten beim Start laden (falls konfiguriert) und an ICE anhängen.
+  async function loadTurn(){
+    if (!METERED_APP || !METERED_KEY) return;                 // nicht konfiguriert -> nur STUN
+    try {
+      const res = await fetch(`https://${METERED_APP}/api/v1/turn/credentials?apiKey=${METERED_KEY}`);
+      const list = await res.json();
+      if (Array.isArray(list) && list.length) ICE.iceServers = ICE.iceServers.concat(list);
+    } catch(e){ /* ohne TURN weiter – nur STUN */ }
+  }
 
   function deliver(data){ if (cb && !muted) cb(data); }
 
@@ -490,7 +502,8 @@ const Sync = (() => {
     if (tries > 40) return setStatus('off');           // ~10s, dann aufgeben (solo)
     setTimeout(() => waitForPeer(tries + 1), 250);
   }
-  if (SESSION) waitForPeer(); else setStatus('off');
+  // Erst TURN-Zugangsdaten laden (falls konfiguriert), dann verbinden.
+  if (SESSION) loadTurn().then(() => waitForPeer()); else setStatus('off');
 
   return {
     session: SESSION,
