@@ -35,19 +35,25 @@ Der Coach erhält unten den fertigen **Teilnehmer-Link** (inkl. Sitzungs-ID) mit
 
 Coach und Teilnehmer:in sehen dieselbe, live aktualisierte Seite. Technik:
 
-- **WebRTC (Peer-to-Peer):** Die Coaching-Inhalte gehen **direkt** von Browser zu
-  Browser und sind dabei **Ende-zu-Ende-verschlüsselt** – sie laufen über **keinen
-  fremden Server**.
-- Für den reinen Verbindungsaufbau wird der kostenlose, **inhaltsblinde**
-  PeerJS-Vermittler genutzt (sieht nur „wer verbindet sich", nie Inhalte).
+- **Kleiner eigener WebSocket-Relay** (Ordner [`relay/`](relay/)): Coach und
+  Teilnehmer:in verbinden sich beide nach außen zum Relay und tauschen darüber ihre
+  Einträge aus. **Zuverlässig in allen Netzen** – auch Mobilfunk und Firmen-WLAN –
+  ohne NAT/STUN/TURN-Gefrickel.
+- Der Relay **reicht die Nachrichten je Raum nur durch und speichert nichts**
+  (TLS-verschlüsselte `wss://`-Verbindung).
 - Der **Coach ist die Quelle der Wahrheit**: Änderungen der Teilnehmer:in gehen an
   den Coach, der sie übernimmt und an alle verteilt.
-- Ohne Internet/CDN läuft die App **weiter solo** (dann keine Live-Verbindung).
-- Unten zeigt ein **Statuspunkt** den Verbindungszustand.
+- Ist kein Relay konfiguriert oder erreichbar, läuft die App **weiter solo**
+  (nur gleiches Gerät). Unten zeigt ein **Statuspunkt** den Verbindungszustand.
 
-**Bekannte Grenze:** In sehr strengen Netzen (manche Firmen-/Mobilfunknetze) kann
-eine direkte P2P-Verbindung scheitern, weil (bewusst) kein TURN-Relay betrieben
-wird. Dann hilft nur ein anderes Netz oder – später – ein eigener kleiner Relay.
+**Einrichtung des Relays:** siehe [`relay/README.md`](relay/README.md) (einmal
+~5 Minuten, kostenlos auf Deno Deploy). Danach die `wss://`-URL in `index.html`
+unter `RELAY_URL` eintragen.
+
+**Datenschutz-Hinweis:** Der Relay läuft auf eurer eigenen Deno-Deploy-Instanz und
+speichert nichts, sieht die durchgereichten Inhalte technisch aber im Klartext. Für
+echte Ende-zu-Ende-Verschlüsselung (auch der Relay soll nicht mitlesen können) lässt
+sich eine Verschlüsselungsschicht nachrüsten.
 
 ### Ablauf
 
@@ -81,11 +87,9 @@ anhängt und in `render()` sowie ggf. im Abschnitt „Tools" ausbaut – analog 
 
 Die Übertragung steckt gekapselt im Modul `Sync` (an die Sitzungs-ID gebunden) und
 kombiniert zwei Wege: **BroadcastChannel** (gleiches Gerät, mehrere Tabs – auch der
-Offline-Fallback) und **WebRTC via PeerJS** (geräteübergreifend). Die restliche App
-spricht nur `Sync.send(state)`, `Sync.onReceive(cb)` und `Sync.onStatus(cb)` an.
-
-Wer den Vermittler tauschen will (z. B. eigener PeerServer statt PeerJS-Public oder
-ein Relay mit TURN für strenge Netze), muss nur dieses Modul anpassen.
+Fallback) und der **WebSocket-Relay** (geräteübergreifend, Ordner [`relay/`](relay/)).
+Die restliche App spricht nur `Sync.send(state)`, `Sync.onReceive(cb)` und
+`Sync.onStatus(cb)` an. Die Relay-Adresse steht in der Konstante `RELAY_URL`.
 
 ## Lizenz / Zusammenarbeit
 
