@@ -204,9 +204,19 @@
   .conn.off  .dot{ background:#b45; box-shadow:0 0 0 3px color-mix(in srgb,#b45 22%, transparent); }
   @keyframes pulse{ 50%{ opacity:.35; } }
 
+  /* Datenschutz-Hinweis beim Öffnen */
+  .overlay{ position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(20,20,24,.45); backdrop-filter:blur(3px); animation:fade .25s ease; }
+  .overlay[hidden]{ display:none; }
+  .modal{ background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); max-width:440px; width:100%; padding:24px 24px 20px; }
+  .modal h3{ margin:0 0 12px; font-size:1.15rem; }
+  .modal p{ margin:0 0 12px; font-size:.92rem; color:var(--ink); }
+  .modal .warn{ background:color-mix(in srgb, var(--accent) 10%, transparent); border-left:3px solid var(--accent); border-radius:8px; padding:10px 12px; color:var(--ink); }
+  .modal .modal-actions{ text-align:right; margin-top:6px; }
+  .rolebar .rb-info{ border:none; background:none; color:var(--ink-soft); text-decoration:underline; font-size:.72rem; cursor:pointer; padding:0; }
+
   /* ---------- 7. Druck-/PDF-Layout ---------- */
   @media print{
-    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .scale .track{ display:none !important; }
+    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .scale .track, .overlay{ display:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -219,6 +229,26 @@
 </style>
 </head>
 <body>
+
+<!-- Datenschutz-Hinweis (erscheint beim Öffnen, schließbar) -->
+<div class="overlay" id="privacyOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+    <h3 id="privacyTitle">Kurz zum Datenschutz</h3>
+    <p><strong>Es werden keine Daten gespeichert.</strong> Alle Eingaben bestehen nur
+       in diesem Browser-Tab und sind weg, sobald der Tab geschlossen oder die Seite
+       neu geladen wird.</p>
+    <p>Die Verbindung zwischen Coach und Teilnehmer:in ist <strong>direkt und
+       Ende-zu-Ende-verschlüsselt</strong> – die Inhalte laufen über <strong>keinen
+       fremden Server</strong>. Der Verbindungsvermittler stellt nur den Kontakt her
+       und sieht die Inhalte nicht.</p>
+    <p class="warn">Bitte dieses Fenster geöffnet lassen und die Seite während des
+       Coachings <strong>nicht aktualisieren (neu laden)</strong> – sonst gehen die
+       Eintragungen verloren.</p>
+    <div class="modal-actions">
+      <button class="btn" id="privacyOk">Verstanden</button>
+    </div>
+  </div>
+</div>
 
 <!-- ---------- 2. HTML-Gerüst ---------- -->
 <header id="appHeader">
@@ -644,16 +674,19 @@ $('#btnExport').addEventListener('click', exportPdf);
 // Rollenhinweis + Verbindungsstatus
 const coacheeLink = location.origin + location.pathname + '?role=coachee&session=' + SESSION;
 const roleBar = $('#roleBar');
+const infoBtn = '<button class="rb-info" id="btnPrivacy">Datenschutz</button>';
 if (ROLE === 'coachee'){
   roleBar.innerHTML =
     '<span>Teilnehmer-Ansicht – Sie sehen, woran gerade gearbeitet wird, und können mitschreiben.</span>' +
-    '<span class="conn" id="conn"><span class="dot"></span><span id="connText">…</span></span>';
+    '<span class="conn" id="conn"><span class="dot"></span><span id="connText">…</span></span>' +
+    infoBtn;
 } else {
   roleBar.innerHTML =
     '<span>Coach-Ansicht</span>' +
     '<span class="conn" id="conn"><span class="dot"></span><span id="connText">…</span></span>' +
     '<a href="' + coacheeLink + '" target="_blank" rel="noopener" title="Teilnehmer-Link">Teilnehmer-Link</a>' +
-    '<button class="rb-copy" id="btnCopyLink">kopieren</button>';
+    '<button class="rb-copy" id="btnCopyLink">kopieren</button>' +
+    infoBtn;
   $('#btnCopyLink').addEventListener('click', async () => {
     const btn = $('#btnCopyLink');
     try { await navigator.clipboard.writeText(coacheeLink); btn.textContent = 'kopiert ✓'; }
@@ -678,6 +711,11 @@ Sync.onStatus(({ kind, peers }) => {
       : 'nicht verbunden';
   }
 });
+
+// Datenschutz-Hinweis: schließen und wieder öffnen
+const privacyOverlay = $('#privacyOverlay');
+$('#privacyOk').addEventListener('click', () => { privacyOverlay.hidden = true; });
+$('#btnPrivacy').addEventListener('click', () => { privacyOverlay.hidden = false; });
 
 // Hilfsfunktion
 function escapeHtml(str){ return String(str).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
