@@ -1,0 +1,6 @@
+# Lokale, maschinenspezifische Claude-Daten (enthält lokale Pfade) – nicht veröffentlichen
+/.claude/
+
+# OS-/Editor-Kram
+Thumbs.db
+.DS_Store

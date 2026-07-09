@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GROW – Coaching-Begleitung</title>
+<!--
+  ============================================================================
+  GROW – Grafische Begleitung für Online-Coachings
+  ============================================================================
+  Single-File-Web-App. Keine externen Abhängigkeiten, keine Datenspeicherung.
+
+  Idee: Ein Coach führt durch die vier GROW-Phasen (Goal, Reality, Options,
+  Will). Die App stellt jede Phase reizarm und klar strukturiert dar und wird
+  nach und nach um Coaching-Tools ergänzt (aktuell: Skala in "Reality").
+
+  Zwei Ansichten über den URL-Parameter ?role=
+    - (ohne / role=coach)   Coach-Ansicht mit allen Bedienelementen
+    - ?role=coachee         Teilnehmer-Ansicht: nur Inhalte, keine Steuer-Buttons
+
+  Synchronisation (Coach <-> Coachee):
+    Aktuell über BroadcastChannel = funktioniert zwischen Tabs/Fenstern auf
+    DEMSELBEN Gerät (zum Testen und für lokale Setups). Für die echte
+    Fernübertragung auf das Gerät des Coachees muss hier später ein Transport
+    (WebRTC / kleiner Websocket-Dienst) eingehängt werden. Die Stelle ist unten
+    als `Sync`-Modul gekapselt, damit genau das ausgetauscht werden kann.
+
+  Aufbau des Codes (weiter unten):
+    1. CSS            – ruhiges, reduziertes Layout
+    2. HTML-Gerüst    – Kopfzeile, Reiter, Phasen-Panels
+    3. State          – ein zentrales Zustandsobjekt, kein Persistieren
+    4. Sync           – austauschbarer Übertragungskanal
+    5. Render         – Zustand -> Oberfläche
+    6. Tools          – Skala (erstes Coaching-Tool)
+    7. PDF-Export     – über die Druckfunktion des Browsers
+  ============================================================================
+-->
+<style>
+  /* ---------- 1. CSS: ruhiges, reizarmes Layout ---------------------------- */
+  :root{
+    --bg:        #f4f3ef;   /* warmes Off-White */
+    --surface:   #ffffff;
+    --ink:       #2b2b2e;   /* Text */
+    --ink-soft:  #6b6b72;   /* Nebentext */
+    --line:      #e3e1da;   /* dezente Linien */
+    --accent:    #4b6b7a;   /* ruhiges Petrol */
+    --accent-2:  #7a9a3f;   /* Grün für zweiten Regler */
+    --focus:     #a9c1cc;
+    --radius:    14px;
+    --maxw:      760px;
+    --shadow:    0 1px 3px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.04);
+    font-size: 16px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#191a1c; --surface:#232427; --ink:#eceae4; --ink-soft:#a2a29b;
+      --line:#34353a; --accent:#7fa7b7; --accent-2:#9dbe5a; --focus:#3c5560;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  button{ font:inherit; color:inherit; cursor:pointer; }
+
+  /* ---- Kopfzeile mit angeheftetem Coachingziel ---- */
+  header{
+    position:sticky; top:0; z-index:20;
+    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:saturate(180%) blur(8px);
+    border-bottom:1px solid transparent;
+    transition:border-color .3s ease;
+  }
+  header.pinned{ border-color:var(--line); }
+  .pin{
+    max-width:var(--maxw); margin:0 auto; padding:0 20px;
+    max-height:0; opacity:0; overflow:hidden;
+    transition:max-height .45s ease, opacity .35s ease, padding .45s ease;
+  }
+  header.pinned .pin{ max-height:140px; opacity:1; padding:14px 20px; }
+  .pin .kicker{ font-size:.72rem; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-soft); }
+  .pin .goaltext{ font-size:1.15rem; font-weight:600; margin-top:2px; }
+
+  /* ---- Reiter (Phasen) ---- */
+  nav.tabs{
+    max-width:var(--maxw); margin:0 auto; padding:0 12px;
+    display:flex; gap:2px;
+  }
+  nav.tabs[hidden]{ display:none; }
+  nav.tabs button{
+    flex:1; background:none; border:none; padding:12px 6px 10px;
+    color:var(--ink-soft); font-size:.9rem; font-weight:500;
+    border-bottom:2px solid transparent; transition:color .2s, border-color .2s;
+  }
+  nav.tabs button .num{ display:block; font-size:.68rem; opacity:.6; }
+  nav.tabs button[aria-selected="true"]{ color:var(--accent); border-bottom-color:var(--accent); }
+  nav.tabs button:hover{ color:var(--ink); }
+
+  /* ---- Hauptbereich ---- */
+  main{ max-width:var(--maxw); margin:0 auto; padding:28px 20px 96px; }
+  .phase{ display:none; animation:fade .35s ease; }
+  .phase.active{ display:block; }
+  @keyframes fade{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none; } }
+
+  .phase-head{ margin:0 0 4px; font-size:1.35rem; font-weight:650; }
+  .phase-sub{ margin:0 0 22px; color:var(--ink-soft); }
+
+  label.field{ display:block; margin:0 0 20px; }
+  label.field .lab{ display:block; font-size:.85rem; color:var(--ink-soft); margin-bottom:6px; }
+
+  input.text, textarea.text{
+    width:100%; background:var(--surface); color:var(--ink);
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:12px 14px; font:inherit; resize:vertical;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  input.text:focus, textarea.text:focus{
+    outline:none; border-color:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 55%, transparent);
+  }
+  textarea.big{ min-height:240px; }
+
+  /* ---- Goal-Startseite: zentrierte Eingabe ---- */
+  .goal-intro{ text-align:center; padding:10px 0 0; }
+  .goal-intro .g-thema input{ text-align:center; max-width:420px; margin:0 auto; font-size:1rem; }
+  .goal-intro .g-ziel{ margin:26px 0; }
+  .goal-intro .g-ziel .lab{ font-size:1rem; color:var(--accent); font-weight:600; }
+  .goal-intro .g-ziel textarea{
+    text-align:center; font-size:1.5rem; font-weight:600; line-height:1.35;
+    min-height:120px; border-width:2px;
+  }
+  .goal-intro .g-prozess input{ text-align:center; max-width:520px; margin:0 auto; font-size:.9rem; }
+  .goal-intro .g-prozess .lab{ font-size:.8rem; }
+
+  /* ---- Buttons ---- */
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--accent); color:#fff; border:none;
+    padding:11px 22px; border-radius:999px; font-weight:600; font-size:.95rem;
+    box-shadow:var(--shadow); transition:filter .15s, transform .05s;
+  }
+  .btn:hover{ filter:brightness(1.06); }
+  .btn:active{ transform:translateY(1px); }
+  .btn.ghost{ background:var(--surface); color:var(--accent); border:1px solid var(--line); box-shadow:none; }
+  .btn.small{ padding:7px 14px; font-size:.85rem; }
+  .center{ text-align:center; }
+  .weiter-row{ text-align:center; margin-top:8px; }
+
+  /* ---- Skala-Tool ---- */
+  .tool{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 18px 22px; margin:18px 0; box-shadow:var(--shadow); }
+  .tool .tool-top{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .tool .tool-top input{ flex:1; border:none; background:none; font-size:1.05rem; font-weight:600; padding:4px 2px; color:var(--ink); border-bottom:1px dashed var(--line); }
+  .tool .tool-top input:focus{ outline:none; border-bottom-color:var(--accent); }
+  .tool .tool-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .range-toggle{ display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; }
+  .range-toggle button{ background:none; border:none; padding:5px 12px; font-size:.82rem; color:var(--ink-soft); }
+  .range-toggle button[aria-pressed="true"]{ background:var(--accent); color:#fff; }
+
+  .scale{ position:relative; height:56px; margin:26px 4px 8px; user-select:none; touch-action:none; }
+  .scale .track{ position:absolute; top:50%; left:0; right:0; height:6px; transform:translateY(-50%); background:var(--line); border-radius:999px; cursor:pointer; }
+  .scale .ticks{ position:absolute; top:50%; left:0; right:0; display:flex; justify-content:space-between; pointer-events:none; }
+  .scale .ticks span{ font-size:.7rem; color:var(--ink-soft); transform:translateY(14px); }
+  .marker{ position:absolute; top:50%; width:26px; height:26px; border-radius:50%; transform:translate(-50%,-50%); border:3px solid #fff; box-shadow:var(--shadow); cursor:grab; display:flex; align-items:center; justify-content:center; }
+  .marker:active{ cursor:grabbing; }
+  .marker .val{ position:absolute; top:-26px; font-size:.75rem; font-weight:700; white-space:nowrap; }
+  .marker.m1{ background:var(--accent); }
+  .marker.m1 .val{ color:var(--accent); }
+  .marker.m2{ background:var(--accent-2); }
+  .marker.m2 .val{ color:var(--accent-2); }
+
+  .hint{ color:var(--ink-soft); font-size:.85rem; }
+  .add-tool-row{ margin-top:10px; }
+
+  /* Elemente, die nur der Coach sieht */
+  body[data-role="coachee"] .coach-only{ display:none !important; }
+
+  /* kleiner Rollen-Hinweis unten */
+  .rolebar{ position:fixed; bottom:0; left:0; right:0; text-align:center; font-size:.72rem; color:var(--ink-soft); padding:6px; background:color-mix(in srgb, var(--bg) 85%, transparent); border-top:1px solid var(--line); z-index:15; }
+  body[data-role="coachee"] .rolebar{ color:var(--accent); }
+
+  /* ---------- 7. Druck-/PDF-Layout ---------- */
+  @media print{
+    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .scale .track{ display:none !important; }
+    body{ background:#fff; }
+    main{ max-width:none; padding:0; }
+    .phase{ display:block !important; page-break-after:always; padding-top:8px; }
+    .phase-head{ border-bottom:2px solid #000; padding-bottom:4px; }
+    input.text, textarea.text{ border:1px solid #bbb; }
+    .print-goal{ display:block !important; }
+    .scale{ border:1px solid #ccc; border-radius:8px; }
+  }
+  .print-goal{ display:none; }
+</style>
+</head>
+<body>
+
+<!-- ---------- 2. HTML-Gerüst ---------- -->
+<header id="appHeader">
+  <div class="pin">
+    <div class="kicker">Coachingziel</div>
+    <div class="goaltext" id="pinGoal">–</div>
+  </div>
+  <nav class="tabs coach-only" id="tabs" hidden>
+    <button data-phase="goal"    aria-selected="true"><span class="num">1</span>Goal</button>
+    <button data-phase="reality" aria-selected="false"><span class="num">2</span>Reality</button>
+    <button data-phase="options" aria-selected="false"><span class="num">3</span>Options</button>
+    <button data-phase="will"    aria-selected="false"><span class="num">4</span>Will</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Für den PDF-Export: Coachingziel oben auf jeder Phase (nur im Druck sichtbar) -->
+  <!-- GOAL --------------------------------------------------------------->
+  <section class="phase active" data-phase="goal" id="phase-goal">
+    <div class="goal-intro" id="goalIntro">
+      <label class="field g-thema">
+        <span class="lab">Thema</span>
+        <input class="text" id="in-thema" placeholder="Worum geht es heute?">
+      </label>
+      <label class="field g-ziel">
+        <span class="lab">Coachingziel</span>
+        <textarea class="text" id="in-ziel" placeholder="Was soll am Ende dieses Gesprächs erreicht sein?"></textarea>
+      </label>
+      <label class="field g-prozess">
+        <span class="lab">Prozessziel (optional)</span>
+        <input class="text" id="in-prozess" placeholder="Wie soll der Weg dorthin aussehen?">
+      </label>
+      <div class="weiter-row coach-only">
+        <button class="btn" id="btnWeiter">Weiter →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- REALITY ------------------------------------------------------------>
+  <section class="phase" data-phase="reality" id="phase-reality">
+    <h2 class="phase-head">Reality</h2>
+    <p class="phase-sub">Wie ist die Situation im Moment? Was ist bereits da?</p>
+    <label class="field">
+      <textarea class="text big" id="in-reality" placeholder="Beobachtungen, Fakten, Gefühle, bisher Versuchtes …"></textarea>
+    </label>
+    <div id="scaleList"></div>
+    <div class="add-tool-row coach-only">
+      <button class="btn ghost small" id="btnAddScale">+ Skala</button>
+    </div>
+  </section>
+
+  <!-- OPTIONS ------------------------------------------------------------>
+  <section class="phase" data-phase="options" id="phase-options">
+    <h2 class="phase-head">Options</h2>
+    <p class="phase-sub">Welche Möglichkeiten gibt es? Was wäre alles denkbar?</p>
+    <label class="field">
+      <textarea class="text big" id="in-options" placeholder="Ideen, Wege, Alternativen – erst sammeln, dann bewerten …"></textarea>
+    </label>
+  </section>
+
+  <!-- WILL --------------------------------------------------------------->
+  <section class="phase" data-phase="will" id="phase-will">
+    <h2 class="phase-head">Will &nbsp;<span class="hint">(What next)</span></h2>
+    <p class="phase-sub">Was sind die nächsten konkreten Schritte?</p>
+    <label class="field">
+      <textarea class="text big" id="in-will" placeholder="Erster Schritt, bis wann, woran merke ich den Erfolg …"></textarea>
+    </label>
+  </section>
+
+  <div class="center coach-only" style="margin-top:28px">
+    <button class="btn ghost small" id="btnExport">Als PDF exportieren</button>
+  </div>
+</main>
+
+<div class="rolebar" id="roleBar"></div>
+
+<script>
+/* ==========================================================================
+   3. STATE – ein zentrales Objekt. Bewusst NICHT gespeichert.
+   ========================================================================== */
+const state = {
+  started: false,          // wurde "Weiter" gedrückt? -> Coachingziel angeheftet
+  phase: 'goal',           // aktuelle Phase / aktiver Reiter
+  fields: {                // freie Textinhalte je Feld-ID
+    thema:'', ziel:'', prozess:'', reality:'', options:'', will:''
+  },
+  scales: []               // Reality-Tool: [{id,label,max,markers:{m1:%,m2:null|%}}]
+};
+
+// Rolle aus der URL bestimmen
+const params = new URLSearchParams(location.search);
+const ROLE = params.get('role') === 'coachee' ? 'coachee' : 'coach';
+document.body.dataset.role = ROLE;
+
+/* ==========================================================================
+   4. SYNC – austauschbarer Übertragungskanal.
+   Heute: BroadcastChannel (gleiches Gerät, mehrere Tabs). Für echte
+   Fernübertragung hier WebRTC/Websocket einsetzen – die restliche App
+   ruft nur Sync.send(state) und Sync.onReceive(cb).
+   ========================================================================== */
+const Sync = (() => {
+  let chan = null, cb = null, muted = false;
+  try { chan = new BroadcastChannel('grow-coaching'); } catch(e){ /* file:// evtl. ohne */ }
+  if (chan) chan.onmessage = (ev) => { if (cb && !muted) cb(ev.data); };
+  return {
+    send(snapshot){ if (chan) chan.postMessage(snapshot); },
+    onReceive(fn){ cb = fn; },
+    // Beim Anwenden eingehender Daten kurz stummschalten, damit kein Echo entsteht
+    applyQuiet(fn){ muted = true; try{ fn(); } finally { muted = false; } }
+  };
+})();
+
+// Momentaufnahme des Zustands verschicken (nach jeder Änderung)
+function broadcast(){ Sync.send(JSON.parse(JSON.stringify(state))); }
+
+Sync.onReceive((incoming) => {
+  Sync.applyQuiet(() => {
+    Object.assign(state, incoming);
+    render({ keepFocus:true });
+  });
+});
+
+/* ==========================================================================
+   5. RENDER – Zustand auf die Oberfläche übertragen
+   ========================================================================== */
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+
+function render(opts={}){
+  // Kopfzeile / Anheftung
+  const header = $('#appHeader');
+  header.classList.toggle('pinned', state.started);
+  $('#pinGoal').textContent = state.fields.ziel || '–';
+  const tabs = $('#tabs');
+  tabs.hidden = !(state.started && ROLE === 'coach');
+
+  // Textfelder – aktives Feld beim Sync nicht überschreiben
+  const map = { thema:'in-thema', ziel:'in-ziel', prozess:'in-prozess',
+                reality:'in-reality', options:'in-options', will:'in-will' };
+  for (const [key, id] of Object.entries(map)){
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (opts.keepFocus && document.activeElement === el) continue;
+    if (el.value !== state.fields[key]) el.value = state.fields[key];
+  }
+
+  // Reiter-Status
+  $$('#tabs button').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.phase === state.phase)));
+
+  // Phasen-Panels
+  $$('.phase').forEach(p =>
+    p.classList.toggle('active', p.dataset.phase === state.phase));
+
+  // "Weiter" nur vor dem Start zeigen – danach wird über die Reiter navigiert
+  $('.weiter-row').style.display = state.started ? 'none' : '';
+
+  // Skalen rendern
+  renderScales(opts);
+}
+
+/* ==========================================================================
+   6. TOOL: Skala
+   Modell: { id, label, max(10|100), markers:{ m1:prozent, m2:null|prozent } }
+   Prozentwerte 0..100 auf der Spur; angezeigter Wert = Prozent * max / 100.
+   ========================================================================== */
+function addScale(){
+  state.scales.push({ id:'s'+Date.now(), label:'Skala', max:10, markers:{ m1:50, m2:null } });
+  render(); broadcast();
+}
+
+function renderScales(opts={}){
+  const list = $('#scaleList');
+  // Nur neu aufbauen, wenn sich Anzahl/IDs geändert haben (sonst Werte updaten)
+  const existing = $$('.tool', list).map(t => t.dataset.id);
+  const wanted = state.scales.map(s => s.id);
+  if (existing.join(',') !== wanted.join(',')){
+    list.innerHTML = '';
+    state.scales.forEach(s => list.appendChild(buildScaleEl(s)));
+  }
+  // Werte/Positionen aktualisieren
+  state.scales.forEach(s => updateScaleEl(s));
+}
+
+function buildScaleEl(s){
+  const el = document.createElement('div');
+  el.className = 'tool'; el.dataset.id = s.id;
+  el.innerHTML = `
+    <div class="tool-top">
+      <input class="scale-label" value="${escapeHtml(s.label)}" placeholder="Bezeichnung der Skala">
+      <button class="btn ghost small coach-only js-del">Entfernen</button>
+    </div>
+    <div class="tool-actions coach-only">
+      <span class="range-toggle">
+        <button data-max="10"  class="js-range">0–10</button>
+        <button data-max="100" class="js-range">0–100</button>
+      </span>
+      <button class="btn ghost small js-add2">+ zweiter Regler</button>
+      <span class="hint">Auf die Skala klicken, um den Regler zu setzen.</span>
+    </div>
+    <div class="scale">
+      <div class="track"></div>
+      <div class="ticks"></div>
+      <div class="marker m1" data-m="m1"><span class="val"></span></div>
+      <div class="marker m2" data-m="m2" hidden><span class="val"></span></div>
+    </div>`;
+
+  // Bezeichnung (in beiden Rollen editierbar)
+  $('.scale-label', el).addEventListener('input', e => {
+    s.label = e.target.value; broadcast();
+  });
+  // Entfernen
+  $('.js-del', el).addEventListener('click', () => {
+    state.scales = state.scales.filter(x => x.id !== s.id); render(); broadcast();
+  });
+  // Wertebereich
+  $$('.js-range', el).forEach(b => b.addEventListener('click', () => {
+    s.max = Number(b.dataset.max); render(); broadcast();
+  }));
+  // Zweiten Regler hinzufügen
+  $('.js-add2', el).addEventListener('click', () => {
+    if (s.markers.m2 === null) s.markers.m2 = 50;
+    el._lastActive = 'm2';   // nächster Klick auf die Skala setzt den zweiten Regler
+    render(); broadcast();
+  });
+
+  // Klick auf die Spur setzt den zuletzt aktiven Regler (Standard: m1)
+  const scale = $('.scale', el);
+  const track = $('.track', el);
+  track.addEventListener('pointerdown', e => {
+    const which = s.markers.m2 !== null ? (el._lastActive || 'm1') : 'm1';
+    setMarkerFromEvent(s, scale, which, e); broadcast();
+  });
+  // Regler ziehen
+  $$('.marker', el).forEach(mk => {
+    mk.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      const which = mk.dataset.m; el._lastActive = which;
+      mk.setPointerCapture(e.pointerId);
+      const move = ev => { setMarkerFromEvent(s, scale, which, ev); broadcast(); };
+      const up = () => { mk.removeEventListener('pointermove', move); mk.removeEventListener('pointerup', up); };
+      mk.addEventListener('pointermove', move);
+      mk.addEventListener('pointerup', up);
+    });
+  });
+  return el;
+}
+
+function setMarkerFromEvent(s, scaleEl, which, ev){
+  const r = scaleEl.getBoundingClientRect();
+  let pct = ((ev.clientX - r.left) / r.width) * 100;
+  pct = Math.max(0, Math.min(100, pct));
+  s.markers[which] = Math.round(pct);
+  scaleEl.closest('.tool')._lastActive = which;
+  updateScaleEl(s);
+}
+
+function updateScaleEl(s){
+  const el = $(`.tool[data-id="${s.id}"]`); if (!el) return;
+  // Label nur setzen, wenn nicht gerade fokussiert
+  const lab = $('.scale-label', el);
+  if (document.activeElement !== lab && lab.value !== s.label) lab.value = s.label;
+  // aktiver Wertebereich
+  $$('.js-range', el).forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.max) === s.max)));
+  // Ticks
+  const ticks = $('.ticks', el);
+  const step = s.max === 100 ? 10 : 1;
+  const labels = []; for (let v=0; v<=s.max; v+=step) labels.push(v);
+  ticks.innerHTML = labels.map(v => `<span>${v}</span>`).join('');
+  // Marker
+  ['m1','m2'].forEach(m => {
+    const mk = $(`.marker.${m}`, el);
+    const pct = s.markers[m];
+    if (pct === null){ mk.hidden = true; return; }
+    mk.hidden = false;
+    mk.style.left = pct + '%';
+    $('.val', mk).textContent = Math.round(pct * s.max / 100);
+  });
+}
+
+/* ==========================================================================
+   7. PDF-Export – über die Druckfunktion des Browsers ("Als PDF speichern").
+   Bewusst ohne externe Bibliothek: robust, offline, keine Abhängigkeiten.
+   ========================================================================== */
+function exportPdf(){
+  document.title = 'GROW – ' + (state.fields.ziel || 'Coaching');
+  window.print();
+}
+
+/* ==========================================================================
+   Ereignisse verdrahten
+   ========================================================================== */
+// Textfelder -> State
+const fieldMap = { 'in-thema':'thema','in-ziel':'ziel','in-prozess':'prozess',
+                   'in-reality':'reality','in-options':'options','in-will':'will' };
+Object.keys(fieldMap).forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    state.fields[fieldMap[id]] = el.value;
+    if (fieldMap[id] === 'ziel') $('#pinGoal').textContent = el.value || '–';
+    broadcast();
+  });
+});
+
+// "Weiter" -> Coachingziel anheften, in die Phasen wechseln
+$('#btnWeiter').addEventListener('click', () => {
+  state.started = true;
+  render(); broadcast();
+  window.scrollTo({ top:0, behavior:'smooth' });
+});
+
+// Reiter wechseln (nur Coach)
+$$('#tabs button').forEach(b => b.addEventListener('click', () => {
+  state.phase = b.dataset.phase; render(); broadcast();
+}));
+
+$('#btnAddScale').addEventListener('click', addScale);
+$('#btnExport').addEventListener('click', exportPdf);
+
+// Rollenhinweis
+$('#roleBar').textContent = ROLE === 'coachee'
+  ? 'Teilnehmer-Ansicht – Sie sehen, woran gerade gearbeitet wird, und können mitschreiben.'
+  : 'Coach-Ansicht · Teilnehmer-Link: ' + location.origin + location.pathname + '?role=coachee';
+
+// Hilfsfunktion
+function escapeHtml(str){ return String(str).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// Erststart
+render();
+</script>
+</body>
+</html>
