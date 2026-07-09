@@ -5,10 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GROW – Coaching-Begleitung</title>
 <!--
+  PeerJS: kostenloser, inhaltsblinder Vermittler für den WebRTC-Verbindungsaufbau
+  (siehe Sync-Modul). Wird nur für die Live-Übertragung geladen; ohne Netz/CDN
+  funktioniert die App weiter solo (kein Absturz). Async, damit der Start nie blockiert.
+-->
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" async></script>
+<!--
   ============================================================================
   GROW – Grafische Begleitung für Online-Coachings
   ============================================================================
-  Single-File-Web-App. Keine externen Abhängigkeiten, keine Datenspeicherung.
+  Single-File-Web-App. Keine Datenspeicherung. Einzige externe Abhängigkeit:
+  PeerJS (oben per CDN, nur für die Live-Übertragung) – ohne Netz läuft die App
+  weiter solo.
 
   Idee: Ein Coach führt durch die vier GROW-Phasen (Goal, Reality, Options,
   Will). Die App stellt jede Phase reizarm und klar strukturiert dar und wird
@@ -18,12 +26,17 @@
     - (ohne / role=coach)   Coach-Ansicht mit allen Bedienelementen
     - ?role=coachee         Teilnehmer-Ansicht: nur Inhalte, keine Steuer-Buttons
 
-  Synchronisation (Coach <-> Coachee):
-    Aktuell über BroadcastChannel = funktioniert zwischen Tabs/Fenstern auf
-    DEMSELBEN Gerät (zum Testen und für lokale Setups). Für die echte
-    Fernübertragung auf das Gerät des Coachees muss hier später ein Transport
-    (WebRTC / kleiner Websocket-Dienst) eingehängt werden. Die Stelle ist unten
-    als `Sync`-Modul gekapselt, damit genau das ausgetauscht werden kann.
+  Mehrere Coachings gleichzeitig: jede Sitzung hat eine eigene SESSION-ID
+  (in der URL, ?session=…). Der Teilnehmer-Link trägt diese ID, sodass sich
+  Räume verschiedener Coaches nicht vermischen.
+
+  Synchronisation (Coach <-> Coachee) – im `Sync`-Modul gekapselt, an die
+  SESSION-ID gebunden, zwei Wege parallel:
+    a) BroadcastChannel = gleiches Gerät, mehrere Tabs (Offline-Fallback/Test)
+    b) WebRTC via PeerJS = geräteübergreifend, Peer-to-Peer, Inhalte
+       Ende-zu-Ende-verschlüsselt; der PeerJS-Vermittler stiftet nur die
+       Verbindung und sieht KEINE Inhalte. Der Coach ist die Quelle der
+       Wahrheit und verteilt Änderungen an alle Teilnehmer.
 
   Aufbau des Codes (weiter unten):
     1. CSS            – ruhiges, reduziertes Layout
@@ -181,8 +194,15 @@
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
   /* kleiner Rollen-Hinweis unten */
-  .rolebar{ position:fixed; bottom:0; left:0; right:0; text-align:center; font-size:.72rem; color:var(--ink-soft); padding:6px; background:color-mix(in srgb, var(--bg) 85%, transparent); border-top:1px solid var(--line); z-index:15; }
-  body[data-role="coachee"] .rolebar{ color:var(--accent); }
+  .rolebar{ position:fixed; bottom:0; left:0; right:0; font-size:.74rem; color:var(--ink-soft); padding:7px 12px; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(6px); border-top:1px solid var(--line); z-index:15; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  .rolebar a{ color:var(--accent); text-decoration:none; }
+  .rolebar .rb-copy{ border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:3px 10px; font-size:.72rem; color:var(--accent); }
+  .conn{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .conn .dot{ width:9px; height:9px; border-radius:50%; background:var(--ink-soft); box-shadow:0 0 0 3px color-mix(in srgb, var(--ink-soft) 20%, transparent); }
+  .conn.ok   .dot{ background:#4a9a5a; box-shadow:0 0 0 3px color-mix(in srgb,#4a9a5a 22%, transparent); }
+  .conn.wait .dot{ background:#c8992e; box-shadow:0 0 0 3px color-mix(in srgb,#c8992e 22%, transparent); animation:pulse 1.3s ease-in-out infinite; }
+  .conn.off  .dot{ background:#b45; box-shadow:0 0 0 3px color-mix(in srgb,#b45 22%, transparent); }
+  @keyframes pulse{ 50%{ opacity:.35; } }
 
   /* ---------- 7. Druck-/PDF-Layout ---------- */
   @media print{
@@ -298,31 +318,123 @@ const ROLE = params.get('role') === 'coachee' ? 'coachee' : 'coach';
 document.body.dataset.role = ROLE;
 
 /* ==========================================================================
-   4. SYNC – austauschbarer Übertragungskanal.
-   Heute: BroadcastChannel (gleiches Gerät, mehrere Tabs). Für echte
-   Fernübertragung hier WebRTC/Websocket einsetzen – die restliche App
-   ruft nur Sync.send(state) und Sync.onReceive(cb).
+   SESSION – eindeutige Raum-ID je Coaching, damit mehrere Coachings
+   gleichzeitig laufen können, ohne sich zu vermischen.
+   - Coach:   nimmt die ID aus dem Link oder erzeugt eine neue (und schreibt
+              sie in die URL, damit der Teilnehmer-Link stabil bleibt).
+   - Coachee: braucht die ID aus dem Link (im Teilnehmer-Link enthalten).
    ========================================================================== */
+let SESSION = params.get('session');
+if (!SESSION && ROLE === 'coach'){
+  SESSION = Math.random().toString(36).slice(2, 8);   // z.B. "k7f3a9"
+  const u = new URL(location.href);
+  u.searchParams.set('session', SESSION);
+  history.replaceState(null, '', u);                  // Raum-ID in der Adresse verankern
+}
+
+/* ==========================================================================
+   4. SYNC – austauschbarer Übertragungskanal, pro SESSION getrennt.
+   Zwei Wege parallel, beide an die SESSION gebunden:
+     a) BroadcastChannel  – gleiches Gerät, mehrere Tabs (Offline-Fallback/Test)
+     b) WebRTC (PeerJS)   – geräteübergreifend, Peer-to-Peer, Inhalte
+                            Ende-zu-Ende-verschlüsselt; der PeerJS-Vermittler
+                            stiftet nur die Verbindung und sieht KEINE Inhalte.
+   Der Coach ist die Quelle der Wahrheit: Coachee-Änderungen gehen an den Coach,
+   der sie anwendet und an alle Teilnehmer weiterverteilt.
+   Die restliche App spricht nur Sync.send() / onReceive() / onStatus() an.
+   ========================================================================== */
+function snapshot(){ return JSON.parse(JSON.stringify(state)); }
+
 const Sync = (() => {
-  let chan = null, cb = null, muted = false;
-  try { chan = new BroadcastChannel('grow-coaching'); } catch(e){ /* file:// evtl. ohne */ }
-  if (chan) chan.onmessage = (ev) => { if (cb && !muted) cb(ev.data); };
+  let cb = null, muted = false, statusCb = () => {};
+  let lastStatus = { kind:'off', peers:0 };
+
+  // --- a) lokaler Kanal, an die SESSION gebunden ---
+  let chan = null;
+  try { chan = new BroadcastChannel('grow-coaching-' + SESSION); } catch(e){}
+  if (chan) chan.onmessage = (ev) => deliver(ev.data);
+
+  // --- b) WebRTC über PeerJS ---
+  const conns = new Set();            // offene DataConnections
+  let peer = null, retryTimer = null;
+  const COACH_ID = 'grow-' + SESSION; // fester Peer-Name des Coaches
+
+  function deliver(data){ if (cb && !muted) cb(data); }
+
+  function sendAll(data){
+    if (chan) chan.postMessage(data);
+    conns.forEach(c => { try { if (c.open) c.send(data); } catch(e){} });
+  }
+
+  function setStatus(kind){
+    lastStatus = { kind, peers: conns.size };
+    statusCb(lastStatus);
+  }
+
+  function wireConn(c){
+    c.on('open', () => {
+      conns.add(c); setStatus('ok');
+      if (ROLE === 'coach') { try { c.send(snapshot()); } catch(e){} } // Neuen sofort abgleichen
+    });
+    // Coach verteilt nach dem Anwenden ohnehin an alle (siehe Sync.onReceive),
+    // daher hier nur zustellen.
+    c.on('data', (d) => deliver(d));
+    const drop = () => { conns.delete(c); setStatus(conns.size ? 'ok' : (ROLE==='coach' ? 'wait' : 'wait')); };
+    c.on('close', drop);
+    c.on('error', drop);
+  }
+
+  function initPeer(){
+    if (typeof Peer === 'undefined'){ setStatus('off'); return; }   // CDN nicht geladen -> solo
+    try {
+      if (ROLE === 'coach'){
+        peer = new Peer(COACH_ID);
+        peer.on('open', () => setStatus('wait'));
+        peer.on('connection', wireConn);
+      } else {
+        setStatus('wait');
+        peer = new Peer();
+        peer.on('open', () => wireConn(peer.connect(COACH_ID, { reliable:true })));
+      }
+      peer.on('disconnected', () => { try { peer.reconnect(); } catch(e){} });
+      peer.on('error', (err) => {
+        // Häufig: Coach noch nicht da (peer-unavailable) oder ID kurz belegt.
+        // In beiden Fällen nach kurzer Pause neu versuchen.
+        setStatus(conns.size ? 'ok' : 'wait');
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => { try{ peer && peer.destroy(); }catch(e){} initPeer(); }, 2500);
+      });
+    } catch(e){ setStatus('off'); }
+  }
+
+  // PeerJS wird async geladen -> starten, sobald verfügbar (oder solo bleiben)
+  function waitForPeer(tries=0){
+    if (typeof Peer !== 'undefined') return initPeer();
+    if (tries > 40) return setStatus('off');           // ~10s, dann aufgeben (solo)
+    setTimeout(() => waitForPeer(tries + 1), 250);
+  }
+  if (SESSION) waitForPeer(); else setStatus('off');
+
   return {
-    send(snapshot){ if (chan) chan.postMessage(snapshot); },
+    session: SESSION,
+    send(data){ sendAll(data); },
     onReceive(fn){ cb = fn; },
+    onStatus(fn){ statusCb = fn; fn(lastStatus); },
     // Beim Anwenden eingehender Daten kurz stummschalten, damit kein Echo entsteht
     applyQuiet(fn){ muted = true; try{ fn(); } finally { muted = false; } }
   };
 })();
 
 // Momentaufnahme des Zustands verschicken (nach jeder Änderung)
-function broadcast(){ Sync.send(JSON.parse(JSON.stringify(state))); }
+function broadcast(){ Sync.send(snapshot()); }
 
 Sync.onReceive((incoming) => {
   Sync.applyQuiet(() => {
     Object.assign(state, incoming);
     render({ keepFocus:true });
   });
+  // Coach hat eine Coachee-Änderung übernommen -> an alle weiterreichen
+  if (ROLE === 'coach') Sync.send(snapshot());
 });
 
 /* ==========================================================================
@@ -529,10 +641,43 @@ $('#btnAddScale').addEventListener('click', () => addScale('reality'));
 $('#btnAddScaleGoal').addEventListener('click', () => addScale('goal'));
 $('#btnExport').addEventListener('click', exportPdf);
 
-// Rollenhinweis
-$('#roleBar').textContent = ROLE === 'coachee'
-  ? 'Teilnehmer-Ansicht – Sie sehen, woran gerade gearbeitet wird, und können mitschreiben.'
-  : 'Coach-Ansicht · Teilnehmer-Link: ' + location.origin + location.pathname + '?role=coachee';
+// Rollenhinweis + Verbindungsstatus
+const coacheeLink = location.origin + location.pathname + '?role=coachee&session=' + SESSION;
+const roleBar = $('#roleBar');
+if (ROLE === 'coachee'){
+  roleBar.innerHTML =
+    '<span>Teilnehmer-Ansicht – Sie sehen, woran gerade gearbeitet wird, und können mitschreiben.</span>' +
+    '<span class="conn" id="conn"><span class="dot"></span><span id="connText">…</span></span>';
+} else {
+  roleBar.innerHTML =
+    '<span>Coach-Ansicht</span>' +
+    '<span class="conn" id="conn"><span class="dot"></span><span id="connText">…</span></span>' +
+    '<a href="' + coacheeLink + '" target="_blank" rel="noopener" title="Teilnehmer-Link">Teilnehmer-Link</a>' +
+    '<button class="rb-copy" id="btnCopyLink">kopieren</button>';
+  $('#btnCopyLink').addEventListener('click', async () => {
+    const btn = $('#btnCopyLink');
+    try { await navigator.clipboard.writeText(coacheeLink); btn.textContent = 'kopiert ✓'; }
+    catch(e){ btn.textContent = 'Strg+C'; }
+    setTimeout(() => btn.textContent = 'kopieren', 1800);
+  });
+}
+
+// Statusanzeige aus dem Sync-Modul
+Sync.onStatus(({ kind, peers }) => {
+  const box = $('#conn'), txt = $('#connText');
+  if (!box || !txt) return;
+  box.className = 'conn ' + (kind === 'ok' ? 'ok' : kind === 'wait' ? 'wait' : 'off');
+  if (ROLE === 'coach'){
+    txt.textContent = kind === 'ok'
+        ? (peers === 1 ? 'Teilnehmer verbunden' : peers + ' Teilnehmer verbunden')
+      : kind === 'wait' ? 'warte auf Teilnehmer …'
+      : 'nur lokal (kein Vermittler erreichbar)';
+  } else {
+    txt.textContent = kind === 'ok' ? 'verbunden'
+      : kind === 'wait' ? 'verbinde …'
+      : 'nicht verbunden';
+  }
+});
 
 // Hilfsfunktion
 function escapeHtml(str){ return String(str).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }

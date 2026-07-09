@@ -20,7 +20,29 @@ Installation, kein Build, keine externen Abhängigkeiten. Einfach im Browser öf
 | Aufruf | Ansicht |
 |---|---|
 | `index.html` | **Coach** – alle Bedienelemente (Phasen-Reiter, Tools, Export) |
-| `index.html?role=coachee` | **Teilnehmer:in** – sieht nur die Inhalte und kann mitschreiben, keine Steuer-Buttons |
+| `index.html?role=coachee&session=…` | **Teilnehmer:in** – sieht nur die Inhalte und kann mitschreiben, keine Steuer-Buttons |
+
+Der Coach erhält unten den fertigen **Teilnehmer-Link** (inkl. Sitzungs-ID) mit
+„kopieren"-Button. Mehrere Coachings laufen dank eigener **Sitzungs-ID**
+(`?session=…`) gleichzeitig, ohne sich zu vermischen.
+
+### Live-Übertragung (Coach ↔ Coachee)
+
+Coach und Teilnehmer:in sehen dieselbe, live aktualisierte Seite. Technik:
+
+- **WebRTC (Peer-to-Peer):** Die Coaching-Inhalte gehen **direkt** von Browser zu
+  Browser und sind dabei **Ende-zu-Ende-verschlüsselt** – sie laufen über **keinen
+  fremden Server**.
+- Für den reinen Verbindungsaufbau wird der kostenlose, **inhaltsblinde**
+  PeerJS-Vermittler genutzt (sieht nur „wer verbindet sich", nie Inhalte).
+- Der **Coach ist die Quelle der Wahrheit**: Änderungen der Teilnehmer:in gehen an
+  den Coach, der sie übernimmt und an alle verteilt.
+- Ohne Internet/CDN läuft die App **weiter solo** (dann keine Live-Verbindung).
+- Unten zeigt ein **Statuspunkt** den Verbindungszustand.
+
+**Bekannte Grenze:** In sehr strengen Netzen (manche Firmen-/Mobilfunknetze) kann
+eine direkte P2P-Verbindung scheitern, weil (bewusst) kein TURN-Relay betrieben
+wird. Dann hilft nur ein anderes Netz oder – später – ein eigener kleiner Relay.
 
 ### Ablauf
 
@@ -50,14 +72,15 @@ Ein neues Tool ergänzt man am einfachsten, indem man es an das `state`-Objekt
 anhängt und in `render()` sowie ggf. im Abschnitt „Tools" ausbaut – analog zur
 `Skala`.
 
-### Offene Baustelle: Coach ↔ Coachee in Echtzeit
+### Sync-Modul
 
-Damit die Teilnehmer:in *auf einem anderen Gerät* live dieselbe Seite sieht, braucht
-es einen Übertragungsweg. Aktuell ist im Modul `Sync` **BroadcastChannel** verbaut –
-das synchronisiert nur mehrere Tabs auf **demselben Gerät** (gut zum Testen). Für die
-echte Fernübertragung muss dort ein Transport (WebRTC oder ein kleiner
-Websocket-Dienst) eingehängt werden. Die App spricht nur `Sync.send(state)` und
-`Sync.onReceive(cb)` an – der Rest bleibt unberührt.
+Die Übertragung steckt gekapselt im Modul `Sync` (an die Sitzungs-ID gebunden) und
+kombiniert zwei Wege: **BroadcastChannel** (gleiches Gerät, mehrere Tabs – auch der
+Offline-Fallback) und **WebRTC via PeerJS** (geräteübergreifend). Die restliche App
+spricht nur `Sync.send(state)`, `Sync.onReceive(cb)` und `Sync.onStatus(cb)` an.
+
+Wer den Vermittler tauschen will (z. B. eigener PeerServer statt PeerJS-Public oder
+ein Relay mit TURN für strenge Netze), muss nur dieses Modul anpassen.
 
 ## Lizenz / Zusammenarbeit
 
