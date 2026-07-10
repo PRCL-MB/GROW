@@ -198,8 +198,29 @@
   .item .item-del{ flex:none; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:1.1rem; line-height:1; padding:2px 6px; border-radius:6px; }
   .item .item-del:hover{ color:#b4523f; }
   .stars{ display:inline-flex; gap:1px; flex:none; }
+  .stars[hidden]{ display:none; }
   .stars .star{ cursor:pointer; color:var(--line); font-size:1.15rem; line-height:1; padding:2px; user-select:none; }
   .stars .star.on{ color:#d8a531; }
+  .stars.stars-b .star.on{ color:var(--accent-2); }   /* Achse B optisch anders */
+  .item .item-take{ flex:none; border:1px solid var(--line); background:var(--surface); color:var(--accent); border-radius:8px; font-size:.75rem; padding:3px 7px; cursor:pointer; white-space:nowrap; }
+  .item .item-take:hover{ border-color:var(--accent); }
+
+  /* Skala-Endpunkte */
+  .scale-ends{ display:flex; justify-content:space-between; gap:10px; margin:0 2px; }
+  .end-label{ border:none; background:none; font-size:.8rem; color:var(--ink-soft); padding:2px; width:48%; }
+  .end-label:focus{ outline:none; color:var(--ink); }
+  .end-label.end-max{ text-align:right; }
+
+  /* Zwei-Achsen-Bewertung: Kopf + Matrix */
+  .axis-head{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+  .axis-head[hidden]{ display:none; }
+  .axis-field{ flex:1; min-width:180px; }
+  #optMatrixWrap[hidden]{ display:none; }
+  #optMatrixWrap{ margin:18px 0 4px; }
+  .matrix svg{ max-width:100%; height:auto; display:block; }
+  .matrix .mx-legend{ margin-top:8px; font-size:.82rem; color:var(--ink-soft); }
+  .matrix .mx-legend div{ margin:2px 0; }
+  .btn.ghost[aria-pressed="true"]{ background:var(--accent); color:#fff; border-color:var(--accent); }
 
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
@@ -227,7 +248,7 @@
 
   /* ---------- 7. Druck-/PDF-Layout ---------- */
   @media print{
-    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .scale .track, .overlay{ display:none !important; }
+    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .scale .track, .overlay, .item-del, .item-take{ display:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -320,9 +341,22 @@
   <section class="phase" data-phase="options" id="phase-options">
     <h2 class="phase-head">Options</h2>
     <p class="phase-sub">Welche Möglichkeiten gibt es? Erst sammeln, dann mit Sternen bewerten.</p>
+    <div id="optAxisHead" class="axis-head" hidden>
+      <label class="axis-field"><span class="lab">Achse A (Sterne links)</span>
+        <input class="text" id="optAxisA" placeholder="z. B. Attraktivität"></label>
+      <label class="axis-field"><span class="lab">Achse B (Sterne rechts)</span>
+        <input class="text" id="optAxisB" placeholder="z. B. Machbarkeit"></label>
+    </div>
     <div id="optionsList" class="itemlist"></div>
     <div class="add-tool-row">
       <button class="btn ghost small" id="btnAddOption">+ Option</button>
+      <button class="btn ghost small coach-only" id="btnSortOptions">↓ nach Bewertung</button>
+      <button class="btn ghost small coach-only" id="btnToggle2axis">Zwei-Achsen-Bewertung</button>
+    </div>
+    <div id="optMatrixWrap" hidden></div>
+    <div id="scaleListOptions"></div>
+    <div class="add-tool-row coach-only">
+      <button class="btn ghost small" id="btnAddScaleOptions">+ Skala</button>
     </div>
     <label class="field" style="margin-top:24px">
       <span class="lab">Notizen (optional)</span>
@@ -337,6 +371,10 @@
     <div id="actionsList" class="itemlist"></div>
     <div class="add-tool-row">
       <button class="btn ghost small" id="btnAddAction">+ Maßnahme</button>
+    </div>
+    <div id="scaleListWill"></div>
+    <div class="add-tool-row coach-only">
+      <button class="btn ghost small" id="btnAddScaleWill">+ Skala</button>
     </div>
     <label class="field" style="margin-top:24px">
       <span class="lab">Notizen (optional)</span>
@@ -362,9 +400,12 @@ const state = {
   fields: {                // freie Textinhalte je Feld-ID
     thema:'', ziel:'', prozess:'', reality:'', options:'', will:''
   },
-  scales: [],              // Reality-Tool: [{id,phase,label,max,markers:{m1:%,m2:null|%}}]
-  options: [],             // Options-Tool: [{id,text,score(0..5)}]
-  actions: []              // Will-Tool:    [{id,text,until,done}]
+  scales: [],              // Skala-Tool: [{id,phase,label,minLabel,maxLabel,max,markers:{m1:%,m2:null|%}}]
+  options: [],             // Options-Tool: [{id,text,score(0..5),score2(0..5)}]
+  actions: [],             // Will-Tool:    [{id,text,until,done}]
+  opt2axis: false,         // Zwei-Achsen-Bewertung der Optionen (vom Coach schaltbar)
+  optAxisA: '',            // Beschriftung Achse A (Sterne links)
+  optAxisB: ''             // Beschriftung Achse B (Sterne rechts)
 };
 
 // Rolle aus der URL bestimmen
@@ -624,14 +665,16 @@ function syncList(listEl, items, build, update){
    Prozentwerte 0..100 auf der Spur; angezeigter Wert = Prozent * max / 100.
    ========================================================================== */
 function addScale(phase){
-  state.scales.push({ id:'s'+Date.now(), phase, label:'Skala', max:10, markers:{ m1:50, m2:null } });
+  state.scales.push({ id:'s'+Date.now(), phase, label:'Skala', minLabel:'', maxLabel:'', max:10, markers:{ m1:50, m2:null } });
   render(); broadcast();
 }
 
 function renderScales(opts={}){
   // Jede Skala wird in den Container ihrer Phase gerendert
-  renderScaleList($('#scaleList'),     'reality', opts);
-  renderScaleList($('#scaleListGoal'), 'goal',    opts);
+  renderScaleList($('#scaleList'),        'reality', opts);
+  renderScaleList($('#scaleListGoal'),    'goal',    opts);
+  renderScaleList($('#scaleListOptions'), 'options', opts);
+  renderScaleList($('#scaleListWill'),    'will',    opts);
 }
 
 function renderScaleList(list, phase, opts={}){
@@ -668,6 +711,10 @@ function buildScaleEl(s){
       <div class="ticks"></div>
       <div class="marker m1" data-m="m1"><span class="val"></span></div>
       <div class="marker m2" data-m="m2" hidden><span class="val"></span></div>
+    </div>
+    <div class="scale-ends">
+      <input class="end-label end-min" placeholder="linker Pol (z. B. gar nicht)">
+      <input class="end-label end-max" placeholder="rechter Pol (z. B. voll und ganz)">
     </div>`;
 
   // WICHTIG: Handler dürfen NICHT das übergebene Objekt `s` festhalten – bei
@@ -685,6 +732,9 @@ function buildScaleEl(s){
   $('.js-del', el).addEventListener('click', () => {
     state.scales = state.scales.filter(x => x.id !== id); render(); broadcast();
   });
+  // Endpunkt-Beschriftungen (in beiden Rollen editierbar)
+  $('.end-min', el).addEventListener('input', e => { const sc = live(); if (!sc) return; sc.minLabel = e.target.value; broadcast(); });
+  $('.end-max', el).addEventListener('input', e => { const sc = live(); if (!sc) return; sc.maxLabel = e.target.value; broadcast(); });
   // Wertebereich
   $$('.js-range', el).forEach(b => b.addEventListener('click', () => {
     const sc = live(); if (!sc) return;
@@ -768,6 +818,10 @@ function updateScaleEl(s){
   // Label nur setzen, wenn nicht gerade fokussiert
   const lab = $('.scale-label', el);
   if (document.activeElement !== lab && lab.value !== s.label) lab.value = s.label;
+  // Endpunkt-Beschriftungen (fokussiertes Feld nicht überschreiben)
+  const emin = $('.end-min', el), emax = $('.end-max', el);
+  if (document.activeElement !== emin && emin.value !== (s.minLabel || '')) emin.value = s.minLabel || '';
+  if (document.activeElement !== emax && emax.value !== (s.maxLabel || '')) emax.value = s.maxLabel || '';
   // aktiver Wertebereich
   $$('.js-range', el).forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.max) === s.max)));
   // Ticks
@@ -790,22 +844,34 @@ function updateScaleEl(s){
 
 /* ==========================================================================
    6b. TOOL: Options-Liste – Ideen sammeln + mit Sternen (0..5) priorisieren.
+   Optional (vom Coach schaltbar): Zwei-Achsen-Bewertung (Sterne A & B) + Matrix.
    ========================================================================== */
 function addOption(){
-  state.options.push({ id:'o'+Date.now(), text:'', score:0 });
+  state.options.push({ id:'o'+Date.now(), text:'', score:0, score2:0 });
   render(); broadcast();
 }
-function renderOptions(opts={}){ syncList($('#optionsList'), state.options, buildOptionEl, updateOptionEl); }
+function renderOptions(opts={}){
+  // Zwei-Achsen-Kopf (Achsen-Beschriftungen) ein-/ausblenden + Werte spiegeln
+  $('#optAxisHead').hidden = !state.opt2axis;
+  const ia = $('#optAxisA'), ib = $('#optAxisB');
+  if (document.activeElement !== ia && ia.value !== (state.optAxisA || '')) ia.value = state.optAxisA || '';
+  if (document.activeElement !== ib && ib.value !== (state.optAxisB || '')) ib.value = state.optAxisB || '';
+  $('#btnToggle2axis').setAttribute('aria-pressed', String(!!state.opt2axis));
+  // Liste + Matrix
+  syncList($('#optionsList'), state.options, buildOptionEl, updateOptionEl);
+  renderMatrix();
+}
 
 function buildOptionEl(o){
   const el = document.createElement('div');
   el.className = 'item'; el.dataset.id = o.id;
+  const stars = axis => '<span class="stars stars-' + axis + '" data-axis="' + axis + '" title="Bewertung">' +
+    [1,2,3,4,5].map(n => `<span class="star" data-n="${n}">☆</span>`).join('') + '</span>';
   el.innerHTML =
     '<input class="item-text" placeholder="Option / Idee …">' +
-    '<span class="stars" title="Priorität">' +
-      [1,2,3,4,5].map(n => `<span class="star" data-n="${n}">☆</span>`).join('') +
-    '</span>' +
-    '<button class="item-del coach-only" title="Entfernen">✕</button>';
+    stars('a') + stars('b') +
+    '<button class="item-take" title="Als Maßnahme in Will übernehmen">→ Will</button>' +
+    '<button class="item-del" title="Entfernen">✕</button>';
 
   const id = o.id;
   const live = () => state.options.find(x => x.id === id);
@@ -814,12 +880,20 @@ function buildOptionEl(o){
     const it = live(); if (!it) return;
     it.text = e.target.value; broadcast();
   });
-  $$('.star', el).forEach(st => st.addEventListener('click', () => {
+  $$('.stars', el).forEach(group => {
+    const key = group.dataset.axis === 'b' ? 'score2' : 'score';
+    $$('.star', group).forEach(st => st.addEventListener('click', () => {
+      const it = live(); if (!it) return;
+      const n = Number(st.dataset.n);
+      it[key] = (it[key] === n) ? n - 1 : n;   // nochmal auf denselben Stern -> eins runter
+      updateOptionEl(it); renderMatrix(); broadcast();
+    }));
+  });
+  $('.item-take', el).addEventListener('click', () => {
     const it = live(); if (!it) return;
-    const n = Number(st.dataset.n);
-    it.score = (it.score === n) ? n - 1 : n;   // nochmal auf denselben Stern -> eins runter
-    updateOptionEl(it); broadcast();
-  }));
+    state.actions.push({ id:'a'+Date.now(), text: (it.text || ''), until:'', done:false });
+    render(); broadcast();
+  });
   $('.item-del', el).addEventListener('click', () => {
     state.options = state.options.filter(x => x.id !== id); render(); broadcast();
   });
@@ -829,11 +903,53 @@ function updateOptionEl(o){
   const el = $(`#optionsList .item[data-id="${o.id}"]`); if (!el) return;
   const t = $('.item-text', el);
   if (document.activeElement !== t && t.value !== o.text) t.value = o.text;
-  $$('.star', el).forEach((st, i) => {
-    const on = i < o.score;
-    st.textContent = on ? '★' : '☆';
-    st.classList.toggle('on', on);
+  const fill = (group, sc) => $$('.star', group).forEach((st, i) => {
+    const on = i < (sc || 0); st.textContent = on ? '★' : '☆'; st.classList.toggle('on', on);
   });
+  fill($('.stars-a', el), o.score);
+  const gb = $('.stars-b', el);
+  gb.hidden = !state.opt2axis;          // zweite Achse nur im Zwei-Achsen-Modus
+  fill(gb, o.score2);
+}
+
+// 5×5-Matrix (SVG): Optionen als Punkte über Achse A (x) und Achse B (y)
+function renderMatrix(){
+  const wrap = $('#optMatrixWrap');
+  if (!state.opt2axis || !state.options.length){ wrap.hidden = true; wrap.innerHTML = ''; return; }
+  wrap.hidden = false;
+  const W=280, H=280, pad=38, span=W-2*pad;
+  const x = v => pad + (Math.max(0,Math.min(5,v))/5)*span;
+  const y = v => (H-pad) - (Math.max(0,Math.min(5,v))/5)*span;
+  let grid = '';
+  for (let i=0; i<=5; i++){
+    grid += `<line x1="${x(i)}" y1="${y(0)}" x2="${x(i)}" y2="${y(5)}" class="mx-grid"/>`;
+    grid += `<line x1="${x(0)}" y1="${y(i)}" x2="${x(5)}" y2="${y(i)}" class="mx-grid"/>`;
+  }
+  let dots = '';
+  state.options.forEach((o,i) => {
+    const cx = x(o.score||0), cy = y(o.score2||0);
+    dots += `<circle cx="${cx}" cy="${cy}" r="11" class="mx-dot"/><text x="${cx}" y="${cy+4}" class="mx-num">${i+1}</text>`;
+  });
+  const midX = (x(0)+x(5))/2, midY = (y(0)+y(5))/2;
+  const legend = state.options.map((o,i) => `<div>${i+1}. ${escapeHtml(o.text || '(ohne Text)')}</div>`).join('');
+  wrap.innerHTML = `<div class="matrix">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Options-Matrix">
+      <style>
+        .mx-grid{ stroke:var(--line); stroke-width:1; }
+        .mx-axis{ stroke:var(--ink-soft); stroke-width:1.5; }
+        .mx-dot{ fill:var(--accent); opacity:.9; }
+        .mx-num{ fill:#fff; font-size:11px; font-weight:700; text-anchor:middle; }
+        .mx-lab{ fill:var(--ink-soft); font-size:11px; }
+      </style>
+      ${grid}
+      <line x1="${x(0)}" y1="${y(0)}" x2="${x(5)}" y2="${y(0)}" class="mx-axis"/>
+      <line x1="${x(0)}" y1="${y(0)}" x2="${x(0)}" y2="${y(5)}" class="mx-axis"/>
+      <text x="${midX}" y="${H-6}" text-anchor="middle" class="mx-lab">${escapeHtml(state.optAxisA || 'Achse A')} →</text>
+      <text x="12" y="${midY}" text-anchor="middle" class="mx-lab" transform="rotate(-90 12 ${midY})">${escapeHtml(state.optAxisB || 'Achse B')} →</text>
+      ${dots}
+    </svg>
+    <div class="mx-legend">${legend}</div>
+  </div>`;
 }
 
 /* ==========================================================================
@@ -852,7 +968,7 @@ function buildActionEl(a){
     '<input type="checkbox" class="item-done" title="Erledigt">' +
     '<input class="item-text" placeholder="Nächster Schritt / Maßnahme …">' +
     '<input class="item-until" placeholder="bis wann?">' +
-    '<button class="item-del coach-only" title="Entfernen">✕</button>';
+    '<button class="item-del" title="Entfernen">✕</button>';
 
   const id = a.id;
   const live = () => state.actions.find(x => x.id === id);
@@ -921,9 +1037,30 @@ $$('#tabs button').forEach(b => b.addEventListener('click', () => {
 
 $('#btnAddScale').addEventListener('click', () => addScale('reality'));
 $('#btnAddScaleGoal').addEventListener('click', () => addScale('goal'));
+$('#btnAddScaleOptions').addEventListener('click', () => addScale('options'));
+$('#btnAddScaleWill').addEventListener('click', () => addScale('will'));
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
+
+// Optionen: nach Bewertung sortieren (im Zwei-Achsen-Modus nach Summe A+B)
+$('#btnSortOptions').addEventListener('click', () => {
+  const key = o => state.opt2axis ? ((o.score||0) + (o.score2||0)) : (o.score||0);
+  state.options.sort((a,b) => key(b) - key(a));
+  render(); broadcast();
+});
+// Zwei-Achsen-Bewertung ein-/ausschalten (Coach)
+$('#btnToggle2axis').addEventListener('click', () => {
+  state.opt2axis = !state.opt2axis;
+  if (state.opt2axis){
+    if (!state.optAxisA) state.optAxisA = 'Attraktivität';
+    if (!state.optAxisB) state.optAxisB = 'Machbarkeit';
+  }
+  render(); broadcast();
+});
+// Achsen-Beschriftungen
+$('#optAxisA').addEventListener('input', e => { state.optAxisA = e.target.value; renderMatrix(); broadcast(); });
+$('#optAxisB').addEventListener('input', e => { state.optAxisB = e.target.value; renderMatrix(); broadcast(); });
 
 // Rollenhinweis + Verbindungsstatus
 const coacheeLink = location.origin + location.pathname + '?role=coachee&session=' + SESSION +

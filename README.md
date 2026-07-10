@@ -60,12 +60,18 @@ Link-Fragment, das nie an den Server geht). Er speichert ohnehin nichts.
 
 1. **Goal** (Startseite): Thema, Coachingziel, optionales Prozessziel. Mit „Weiter"
    wird das Coachingziel dauerhaft oben angeheftet und die Phasen-Reiter erscheinen.
-2. **Reality**: großes Textfeld + Tool **Skala** (Bereich 0–10 / 0–100, bis zu zwei
-   farblich getrennte Regler per Klick oder Ziehen, frei benennbar).
-3. **Options**: Ideen-/Optionsliste – Einträge sammeln und mit **Sternen (0–5)**
-   priorisieren, plus optionales Notizfeld.
+2. **Reality**: großes Textfeld + Tool **Skala** (0–10 / 0–100, bis zu zwei
+   farblich getrennte Regler, frei benennbar, mit **Endpunkt-Beschriftungen**
+   z. B. „gar nicht ↔ voll und ganz").
+3. **Options**: Ideen-/Optionsliste – mit **Sternen (0–5)** priorisieren,
+   **nach Bewertung sortieren**, jede Option per **„→ Will"** als Maßnahme
+   übernehmen. Optional (vom Coach schaltbar) **Zwei-Achsen-Bewertung**
+   (z. B. Attraktivität × Machbarkeit) inkl. **Matrix-Ansicht**.
 4. **Will**: Maßnahmenliste – konkrete Schritte mit **„bis wann"** und
-   **Erledigt-Haken**, plus optionales Notizfeld.
+   **Erledigt-Haken**.
+   Zusätzlich: die **Skala** ist auch in Goal, Options und Will verfügbar
+   (z. B. Zuversicht/Commitment in „Will"). Listen-Einträge kann auch der
+   Teilnehmer hinzufügen und entfernen; alles synchron und im PDF.
 5. **Als PDF exportieren**: über die Druckfunktion des Browsers („Als PDF speichern").
 
 ## Mitentwickeln
