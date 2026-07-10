@@ -63,6 +63,10 @@ Link-Fragment, das nie an den Server geht). Er speichert ohnehin nichts.
 2. **Reality**: großes Textfeld + Tool **Skala** (0–10 / 0–100, bis zu zwei
    farblich getrennte Regler, frei benennbar, mit **Endpunkt-Beschriftungen**
    z. B. „gar nicht ↔ voll und ganz").
+   In **Goal** und **Reality** zusätzlich das Tool **BiQ – Beobachtung im
+   Quadrat**: ein Quadrat mit vier beschrifteten Seiten (Person · Beziehungen ·
+   Aufgaben · System); Coach und Coachee können gemeinsam einen roten Punkt frei
+   positionieren.
 3. **Options**: Ideen-/Optionsliste – mit **Sternen (0–5)** priorisieren,
    **nach Bewertung sortieren**, jede Option per **„→ Will"** als Maßnahme
    übernehmen. Optional (vom Coach schaltbar) **Zwei-Achsen-Bewertung**

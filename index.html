@@ -222,6 +222,38 @@
   .matrix .mx-legend div{ margin:2px 0; }
   .btn.ghost[aria-pressed="true"]{ background:var(--accent); color:#fff; border-color:var(--accent); }
 
+  /* BiQ – Beobachtung im Quadrat */
+  .biq-title{ flex:1; font-weight:600; }
+  .biq-grid{ display:grid; grid-template-columns:1fr minmax(150px,300px) 1fr;
+    grid-template-areas:". top ." "left sq right" ". bottom ."; gap:8px 12px;
+    align-items:center; justify-items:center; margin-top:8px; }
+  .biq-side{ font-size:.72rem; color:var(--ink-soft); line-height:1.35; }
+  .biq-side b{ color:var(--ink); }
+  .biq-top{ grid-area:top; text-align:center; }
+  .biq-bottom{ grid-area:bottom; text-align:center; }
+  .biq-left{ grid-area:left; text-align:right; }
+  .biq-right{ grid-area:right; text-align:left; }
+  .biq-square{ grid-area:sq; position:relative; width:100%; max-width:300px; aspect-ratio:1;
+    border:1.5px solid var(--ink-soft); border-radius:6px; background-color:var(--surface);
+    background-image:linear-gradient(var(--line),var(--line)),linear-gradient(var(--line),var(--line));
+    background-size:100% 1px,1px 100%; background-position:center; background-repeat:no-repeat;
+    touch-action:none; cursor:pointer; }
+  .biq-dot{ position:absolute; left:50%; top:50%; width:20px; height:20px; border-radius:50%;
+    background:#d63a3a; border:2px solid #fff; box-shadow:var(--shadow);
+    transform:translate(-50%,-50%); cursor:grab; touch-action:none; }
+  .biq-dot:active{ cursor:grabbing; }
+  .biq-edge{ position:absolute; font-size:.62rem; color:var(--ink-soft); pointer-events:none;
+    white-space:nowrap; background:var(--surface); padding:0 3px; }
+  .biq-edge-top{ top:1px; left:50%; transform:translateX(-50%); }
+  .biq-edge-bottom{ bottom:1px; left:50%; transform:translateX(-50%); }
+  .biq-edge-left{ left:1px; top:50%; transform:translateY(-50%); }
+  .biq-edge-right{ right:1px; top:50%; transform:translateY(-50%); }
+  @media (max-width:580px){
+    .biq-grid{ grid-template-columns:1fr; grid-template-areas:"top" "sq" "bottom" "left" "right"; }
+    .biq-left, .biq-right{ text-align:left; }
+    .biq-square{ max-width:80vw; }
+  }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -319,8 +351,10 @@
       </div>
     </div>
     <div id="scaleListGoal"></div>
+    <div id="biqListGoal"></div>
     <div class="add-tool-row coach-only" style="text-align:center">
       <button class="btn ghost small" id="btnAddScaleGoal">+ Skala</button>
+      <button class="btn ghost small" id="btnAddBiqGoal" title="Beobachtung im Quadrat">+ BiQ</button>
     </div>
   </section>
 
@@ -332,8 +366,10 @@
       <textarea class="text big" id="in-reality" placeholder="Beobachtungen, Fakten, Gefühle, bisher Versuchtes …"></textarea>
     </label>
     <div id="scaleList"></div>
+    <div id="biqList"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScale">+ Skala</button>
+      <button class="btn ghost small" id="btnAddBiq" title="Beobachtung im Quadrat">+ BiQ</button>
     </div>
   </section>
 
@@ -401,6 +437,7 @@ const state = {
     thema:'', ziel:'', prozess:'', reality:'', options:'', will:''
   },
   scales: [],              // Skala-Tool: [{id,phase,label,minLabel,maxLabel,max,markers:{m1:%,m2:null|%}}]
+  biqs: [],                // BiQ-Tool (Goal/Reality): [{id,phase,x,y}] – roter Punkt, x/y 0..100
   options: [],             // Options-Tool: [{id,text,score(0..5),score2(0..5)}]
   actions: [],             // Will-Tool:    [{id,text,until,done}]
   opt2axis: false,         // Zwei-Achsen-Bewertung der Optionen (vom Coach schaltbar)
@@ -641,6 +678,7 @@ function render(opts={}){
 
   // Tools rendern
   renderScales(opts);
+  renderBiqs(opts);
   renderOptions(opts);
   renderActions(opts);
 }
@@ -843,6 +881,101 @@ function updateScaleEl(s){
 }
 
 /* ==========================================================================
+   6a2. TOOL: BiQ – Beobachtung im Quadrat (Goal & Reality)
+   Quadrat mit vier beschrifteten Seiten (Person / Beziehungen / Aufgaben /
+   System). Ein roter Punkt (x/y in 0..100 %) lässt sich von Coach UND Coachee
+   frei positionieren. Modell: { id, phase, x, y }.
+   ========================================================================== */
+let draggingBiq = null;   // id des gerade gezogenen BiQ-Punkts (Echo-Schutz)
+
+const BIQ_SIDES = {
+  top:    ['Person', 'Auftritt, Erscheinung, Körpersprache, Werte/Einstellungen, Denkmuster, Sprache, Vita, aktuelle Verfassung, …'],
+  right:  ['Beziehungen / Zusammenarbeit', 'Kommunikation, Nähe-Distanz, Konfliktbewältigung, Atmosphäre, Verlässlichkeit, Vertrauen, Umgang mit Diversität, Feedback, …'],
+  bottom: ['Aufgaben', 'Umsetzung, Zielorientierung, Arbeitsorganisation, Zeitmanagement, Rollenklarheit, Qualität, Ergebnisorientierung, Kontrolle, Umgang mit Fehlern, …'],
+  left:   ['System', 'Strukturen, Prozesse, Vision, Strategie, Werte, Kultur, Regeln, Change, Vernetzung mit Systemumwelten, …']
+};
+
+function addBiq(phase){
+  state.biqs.push({ id:'b'+Date.now(), phase, x:50, y:50 });
+  render(); broadcast();
+}
+function renderBiqs(opts={}){
+  renderBiqList($('#biqList'),     'reality', opts);
+  renderBiqList($('#biqListGoal'), 'goal',    opts);
+}
+function renderBiqList(list, phase, opts={}){
+  const items = state.biqs.filter(b => (b.phase || 'reality') === phase);
+  const existing = $$('.biq', list).map(e => e.dataset.id);
+  const wanted = items.map(b => b.id);
+  if (existing.join(',') !== wanted.join(',')){
+    list.innerHTML = '';
+    items.forEach(b => list.appendChild(buildBiqEl(b)));
+  }
+  items.forEach(updateBiqEl);
+}
+
+function buildBiqEl(b){
+  const el = document.createElement('div');
+  el.className = 'tool biq'; el.dataset.id = b.id;
+  const side = k => `<div class="biq-side biq-${k}"><b>${BIQ_SIDES[k][0]}</b>: ${BIQ_SIDES[k][1]}</div>`;
+  el.innerHTML =
+    '<div class="tool-top">' +
+      '<span class="biq-title">BiQ – Beobachtung im Quadrat</span>' +
+      '<button class="btn ghost small coach-only js-del-biq" title="Entfernen">Entfernen</button>' +
+    '</div>' +
+    '<div class="biq-grid">' +
+      side('top') + side('left') +
+      '<div class="biq-square">' +
+        '<span class="biq-edge biq-edge-top">Person</span>' +
+        '<span class="biq-edge biq-edge-bottom">Aufgaben</span>' +
+        '<span class="biq-edge biq-edge-left">System</span>' +
+        '<span class="biq-edge biq-edge-right">Beziehungen</span>' +
+        '<div class="biq-dot"></div>' +
+      '</div>' +
+      side('right') + side('bottom') +
+    '</div>';
+
+  const id = b.id;
+  const live = () => state.biqs.find(x => x.id === id);
+  const square = $('.biq-square', el);
+
+  square.addEventListener('pointerdown', e => {
+    const it = live(); if (!it) return;
+    e.preventDefault();
+    draggingBiq = id;
+    try { square.setPointerCapture(e.pointerId); } catch(_){}
+    setBiqFromEvent(it, square, e); throttledBroadcast();
+  });
+  square.addEventListener('pointermove', e => {
+    if (draggingBiq !== id) return;
+    const it = live(); if (!it) return;
+    setBiqFromEvent(it, square, e); throttledBroadcast();
+  });
+  const end = () => { if (draggingBiq === id){ draggingBiq = null; broadcast(); } };
+  square.addEventListener('pointerup', end);
+  square.addEventListener('pointercancel', end);
+
+  $('.js-del-biq', el).addEventListener('click', () => {
+    state.biqs = state.biqs.filter(x => x.id !== id); render(); broadcast();
+  });
+  return el;
+}
+function setBiqFromEvent(b, squareEl, ev){
+  const r = squareEl.getBoundingClientRect();
+  b.x = Math.round(Math.max(0, Math.min(100, ((ev.clientX - r.left) / r.width)  * 100)));
+  b.y = Math.round(Math.max(0, Math.min(100, ((ev.clientY - r.top)  / r.height) * 100)));
+  const dot = $('.biq-dot', squareEl);
+  dot.style.left = b.x + '%'; dot.style.top = b.y + '%';
+}
+function updateBiqEl(b){
+  const el = $(`.biq[data-id="${b.id}"]`); if (!el) return;
+  if (draggingBiq === b.id) return;   // eigenen Zieh-Punkt nicht durch Echos zurücksetzen
+  const dot = $('.biq-dot', el);
+  dot.style.left = (b.x ?? 50) + '%';
+  dot.style.top  = (b.y ?? 50) + '%';
+}
+
+/* ==========================================================================
    6b. TOOL: Options-Liste – Ideen sammeln + mit Sternen (0..5) priorisieren.
    Optional (vom Coach schaltbar): Zwei-Achsen-Bewertung (Sterne A & B) + Matrix.
    ========================================================================== */
@@ -1039,6 +1172,8 @@ $('#btnAddScale').addEventListener('click', () => addScale('reality'));
 $('#btnAddScaleGoal').addEventListener('click', () => addScale('goal'));
 $('#btnAddScaleOptions').addEventListener('click', () => addScale('options'));
 $('#btnAddScaleWill').addEventListener('click', () => addScale('will'));
+$('#btnAddBiq').addEventListener('click', () => addBiq('reality'));
+$('#btnAddBiqGoal').addEventListener('click', () => addBiq('goal'));
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
