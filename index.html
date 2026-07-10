@@ -254,6 +254,69 @@
     .biq-square{ max-width:80vw; }
   }
 
+  /* Inneres Team – 2.5D-Aufstellungsbrett (Reality) */
+  .it-toolbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+  .it-toolbar .it-title{ flex:1; font-weight:600; }
+  .btn.small[aria-pressed="true"]{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .it-wrap{ display:flex; gap:12px; align-items:stretch; }
+  .it-tray{ width:120px; flex:none; display:flex; flex-direction:column; gap:7px; max-height:440px; overflow-y:auto; padding:8px 6px; border:1px solid var(--line); border-radius:12px; background:var(--bg); }
+  .it-tray-head{ font-size:.68rem; color:var(--ink-soft); text-align:center; margin-bottom:2px; }
+  .it-tray-item{ display:flex; flex-direction:column; align-items:center; gap:1px; }
+  .it-tray-fig{ background:none; border:1px solid transparent; border-radius:8px; padding:2px; width:100%; display:flex; justify-content:center; }
+  .it-tray-fig:hover{ border-color:var(--focus); background:var(--surface); }
+  .it-tray-fig svg{ height:44px; width:auto; }
+  .it-tray-title{ width:100%; border:none; background:none; font-size:.64rem; text-align:center; color:var(--ink); border-bottom:1px dashed var(--line); padding:1px 0; }
+  .it-tray-title:focus{ outline:none; border-bottom-color:var(--accent); }
+  .it-stagewrap{ flex:1; min-width:0; }
+  .it-stage{ position:relative; width:100%; aspect-ratio:1/1; border:1px solid var(--line); border-radius:12px;
+    overflow:hidden; background:linear-gradient(#e9f0f4,#d6e0e6); touch-action:none; user-select:none; -webkit-user-select:none; }
+  @media (prefers-color-scheme: dark){ .it-stage{ background:linear-gradient(#222a30,#161b1f); } }
+  .it-floor{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .it-redline{ position:absolute; left:0; right:0; display:flex; justify-content:center; z-index:2; }
+  .it-situation{ text-align:center; border:none; background:color-mix(in srgb,var(--surface) 82%, transparent);
+    color:#c0392b; font-weight:600; font-size:.82rem; border-radius:6px; padding:2px 10px; max-width:82%; border-top:2px solid #c0392b; }
+  .it-situation:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
+  .it-fig{ position:absolute; transform:translate(-50%,-100%); display:flex; flex-direction:column; align-items:center; }
+  .it-fig-title{ border:none; background:color-mix(in srgb,var(--surface) 88%, transparent); color:var(--ink);
+    font-size:.66rem; font-weight:600; text-align:center; border-radius:5px; padding:1px 5px; max-width:120px; margin-bottom:1px; }
+  .it-fig-title:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
+  .it-fig-body{ display:block; cursor:grab; width:100%; }
+  .it-fig-body svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 3px 3px rgba(0,0,0,.28)); }
+  .it-fig.dragging .it-fig-body{ cursor:grabbing; }
+  .it-fig-props{ position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px;
+    display:none; flex-direction:column; gap:2px; width:132px; background:var(--surface); border:1px solid var(--line);
+    border-radius:8px; padding:5px; box-shadow:var(--shadow); z-index:5; }
+  .it-fig:hover .it-fig-props, .it-fig.sel .it-fig-props{ display:flex; }
+  .it-fig-props input{ border:none; border-bottom:1px dashed var(--line); background:none; font-size:.66rem; color:var(--ink); padding:1px 3px; }
+  .it-fig-props input:focus{ outline:none; border-bottom-color:var(--accent); }
+  .it-del{ position:absolute; top:-7px; right:-7px; width:17px; height:17px; border-radius:50%; background:#c0392b;
+    color:#fff; border:2px solid var(--surface); align-items:center; justify-content:center; font-size:.66rem; line-height:1;
+    z-index:6; display:none; cursor:pointer; padding:0; }
+  .it-grip{ position:absolute; bottom:-5px; right:-5px; width:15px; height:15px; border:2px solid var(--accent);
+    background:var(--surface); border-radius:3px; cursor:nwse-resize; touch-action:none; z-index:6; display:none; }
+  .it-fig:hover .it-del, .it-fig.sel .it-del{ display:flex; }
+  .it-fig:hover .it-grip, .it-fig.sel .it-grip{ display:block; }
+  .it-empty{ position:absolute; inset:auto 0 42% 0; text-align:center; font-size:.78rem; color:var(--ink-soft); pointer-events:none; }
+  /* POV – Perspektivwechsel */
+  .it-pov{ position:absolute; inset:0; overflow:hidden; touch-action:none; cursor:ew-resize; z-index:200;
+    background:linear-gradient(#bcd6e6 0%,#bcd6e6 40%,#9c7b57 40%,#6f5236 100%); }
+  @media (prefers-color-scheme: dark){ .it-pov{ background:linear-gradient(#2a3844 0%,#2a3844 40%,#4a3a29 40%,#2c2016 100%); } }
+  .it-pov-horizon{ position:absolute; left:0; right:0; top:36%; text-align:center; pointer-events:none; }
+  .it-pov-sit{ display:inline-block; background:rgba(255,255,255,.88); color:#c0392b; font-weight:600; font-size:.8rem;
+    padding:2px 12px; border-radius:6px; border-top:2px solid #c0392b; max-width:80%; }
+  .it-pov-fig{ position:absolute; transform:translate(-50%,-100%); display:flex; flex-direction:column; align-items:center; pointer-events:none; }
+  .it-pov-fig .t{ font-size:.66rem; font-weight:600; background:rgba(255,255,255,.85); border-radius:5px; padding:1px 5px; color:#222; white-space:nowrap; }
+  .it-pov-fig svg{ display:block; filter:drop-shadow(0 3px 3px rgba(0,0,0,.3)); }
+  .it-pov-fig .p{ margin-top:3px; background:rgba(255,255,255,.92); border-radius:6px; padding:3px 6px; font-size:.6rem; color:#333; max-width:150px; line-height:1.4; }
+  .it-pov-exit{ position:absolute; top:8px; right:8px; z-index:9; }
+  .it-pov-hint{ position:absolute; bottom:7px; left:0; right:0; text-align:center; font-size:.68rem; color:rgba(255,255,255,.92); pointer-events:none; }
+  @media (max-width:580px){
+    .it-wrap{ flex-direction:column; }
+    .it-tray{ width:auto; flex-direction:row; flex-wrap:wrap; max-height:none; justify-content:center; }
+    .it-tray-head{ width:100%; }
+    .it-tray-item{ width:70px; }
+  }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -280,7 +343,8 @@
 
   /* ---------- 7. Druck-/PDF-Layout ---------- */
   @media print{
-    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .overlay, .item-del, .item-take, .export-row{ display:none !important; }
+    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .overlay, .item-del, .item-take, .export-row,
+    .it-toolbar, .it-tray, .it-del, .it-grip, .it-pov, .it-empty{ display:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -288,8 +352,13 @@
     input.text, textarea.text{ border:1px solid #bbb; }
     .print-goal{ display:block !important; }
     .scale{ border:1px solid #ccc; border-radius:8px; }
+    /* Inneres Team: Brett voll ausdrucken, Eigenschaften der Figuren sichtbar */
+    .it-wrap{ display:block; }
+    .it-stage{ break-inside:avoid; }
+    .it-fig-props{ display:flex !important; }
     /* Farbige Ergebnis-Elemente wirklich drucken (Browser lassen Hintergrundfarben sonst weg) */
-    .biq-dot, .biq-square, .marker, .marker .val, .scale .track, .stars .star{
+    .biq-dot, .biq-square, .marker, .marker .val, .scale .track, .stars .star,
+    .it-stage, .it-floor, .it-fig-body svg, .it-situation, .it-redline{
       -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
   .print-goal{ display:none; }
@@ -370,9 +439,11 @@
     </label>
     <div id="scaleList"></div>
     <div id="biqList"></div>
+    <div id="teamList"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScale">+ Skala</button>
       <button class="btn ghost small" id="btnAddBiq" title="Beobachtung im Quadrat">+ BiQ</button>
+      <button class="btn ghost small" id="btnAddTeam" title="Inneres Team – Aufstellung">+ Inneres Team</button>
     </div>
   </section>
 
@@ -442,6 +513,7 @@ const state = {
   biqs: [],                // BiQ-Tool (Goal/Reality): [{id,phase,x,y}] – roter Punkt, x/y 0..100
   options: [],             // Options-Tool: [{id,text,score(0..5),score2(0..5)}]
   actions: [],             // Will-Tool:    [{id,text,until,done}]
+  teams: [],               // Inneres-Team-Tool (Reality): [{id,phase,situation,style,povEnabled,trayTitles:[],figures:[{id,kind,title,props:[3],x,y,size}]}]
   opt2axis: false,         // Zwei-Achsen-Bewertung der Optionen (vom Coach schaltbar)
   optAxisA: '',            // Beschriftung Achse A (Sterne links)
   optAxisB: ''             // Beschriftung Achse B (Sterne rechts)
@@ -683,6 +755,7 @@ function render(opts={}){
   renderBiqs(opts);
   renderOptions(opts);
   renderActions(opts);
+  renderTeams(opts);
 }
 
 /* ==========================================================================
@@ -1135,6 +1208,377 @@ function updateActionEl(a){
 }
 
 /* ==========================================================================
+   6d. TOOL: Inneres Team – Aufstellung auf einem 2.5D-Brett (Reality)
+   ---------------------------------------------------------------------------
+   Ein quadratisches "Spielbrett", das wie eine in die Tiefe laufende Fläche
+   (CAD-Look) gezeichnet ist. Links eine Ablage mit 12 gesichtslosen Holz-/
+   Steinfiguren (frei benennbar). Klick stellt eine Figur aufs Brett; sie lässt
+   sich per Drag bewegen und in der Größe ändern, hat einen schwebenden Titel
+   und (bei Hover/Auswahl) drei Eigenschaften. Rote Linie an der hinteren Kante
+   trägt die "konkrete Situation". Umschaltbar Holz<->Stein. "Team duplizieren"
+   für Vorher-/Nachher-Aufstellungen. Optionaler, vom Coach freigeschalteter
+   "Perspektivwechsel" (POV) – POV-Navigation ist rein lokal (nicht synchron).
+   Modell je Team: { id, phase, situation, style:'wood'|'stone', povEnabled,
+                     trayTitles:[12], figures:[{id,kind,title,props:[3],x,y,size}] }
+   x/y sind Brett-Koordinaten 0..100 (x links->rechts, y hinten->vorn).
+   ========================================================================== */
+const IT_TITLES = ['Der Antreiber','Der Kritiker','Der Ängstliche','Der Mutige',
+  'Der Zweifler','Der Beschützer','Der Perfektionist','Der Gelassene',
+  'Der Pflichtbewusste','Der Genießer','Der Neugierige','Der Skeptiker'];
+const IT_BASE_W = 13;                     // Grundbreite einer Figur in % der Bühne
+// Projektion der Brettfläche (Trapez, das nach hinten schmaler wird) in Bühnen-%
+const IT_FAR_L=27, IT_FAR_R=73, IT_NEAR_L=3, IT_NEAR_R=97, IT_TOP=15, IT_BOT=90;
+function itProject(bx,by){
+  const t = by/100;
+  const lx = IT_FAR_L + (IT_NEAR_L-IT_FAR_L)*t;
+  const rx = IT_FAR_R + (IT_NEAR_R-IT_FAR_R)*t;
+  return { sx: lx + (rx-lx)*(bx/100), sy: IT_TOP + (IT_BOT-IT_TOP)*t, scale: 0.55 + 0.8*t };
+}
+function itUnproject(sx,sy){
+  let t = (sy-IT_TOP)/(IT_BOT-IT_TOP); t = Math.max(0,Math.min(1,t));
+  const lx = IT_FAR_L + (IT_NEAR_L-IT_FAR_L)*t;
+  const rx = IT_FAR_R + (IT_NEAR_R-IT_FAR_R)*t;
+  let bx = (sx-lx)/(rx-lx)*100;
+  return { bx: Math.max(0,Math.min(100,bx)), by: t*100 };
+}
+
+// Boden-Raster als SVG (perspektivische Fläche, füllt die Bühne)
+function itFloorSVG(){
+  const p = (bx,by)=>{ const q=itProject(bx,by); return q.sx+' '+q.sy; };
+  const poly = `${p(0,0)} ${p(100,0)} ${p(100,100)} ${p(0,100)}`;
+  let lines='';
+  for(let i=0;i<=5;i++){ const by=i*20; const a=itProject(0,by), b=itProject(100,by);
+    lines += `<line x1="${a.sx}" y1="${a.sy}" x2="${b.sx}" y2="${b.sy}"/>`; }
+  for(let i=0;i<=5;i++){ const bx=i*20; const a=itProject(bx,0), b=itProject(bx,100);
+    lines += `<line x1="${a.sx}" y1="${a.sy}" x2="${b.sx}" y2="${b.sy}"/>`; }
+  return `<svg class="it-floor" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`+
+    `<polygon points="${poly}" fill="#c9b18f" opacity=".33"/>`+
+    `<g stroke="#9c8a6b" stroke-width=".4" opacity=".65" fill="none">${lines}</g></svg>`;
+}
+
+// Figuren-Silhouette (ohne Gesicht): Holzpin oder gestapelte Kieselsteine
+let _itGrad = 0;
+function figureSVG(kind, style){
+  const g = 'itg'+(_itGrad++);
+  if(style === 'stone'){
+    const hue = [210,35,20,150,0,265][kind%6];
+    const top=`hsl(${hue},10%,74%)`, mid=`hsl(${hue},9%,52%)`, bot=`hsl(${hue},11%,35%)`;
+    const three = (kind%2)===1;
+    let s = `<ellipse cx="30" cy="88" rx="${18+(kind%3)*1.5}" ry="11" fill="url(#${g})"/>`;
+    s += `<ellipse cx="${30+((kind%3)-1)*3}" cy="${66-(kind%2)*4}" rx="${13+(kind%2)*2}" ry="10" fill="url(#${g})"/>`;
+    if(three) s += `<ellipse cx="${30-(kind%2)*3}" cy="48" rx="9" ry="8" fill="url(#${g})"/>`;
+    return `<svg viewBox="0 0 60 100" xmlns="http://www.w3.org/2000/svg"><defs>`+
+      `<linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/>`+
+      `<stop offset=".55" stop-color="${mid}"/><stop offset="1" stop-color="${bot}"/></linearGradient></defs>${s}</svg>`;
+  }
+  const light=['#e3c08d','#d9b57e','#e6c795','#dcae72','#e0bd8a','#d3a86a'][kind%6];
+  const mid  =['#b5824e','#a9773f','#bb8b57','#a06d34','#b07f4a','#9c6a34'][kind%6];
+  const dark =['#7c4f23','#6f471e','#835629','#653f18','#79501f','#5f3c17'][kind%6];
+  const headCy = 15 + (kind%4)*1.6;
+  const headR  = 8.5 + (kind%3)*1.1;
+  const neckY  = headCy + headR + 2;
+  const topW = 13 + (kind%4)*1.4;
+  const botW = 18 + (kind%3)*2.2;
+  const baseY = 95, midY = (neckY+baseY)/2;
+  const torso = `M ${30-topW} ${neckY} C ${30-topW-2} ${midY} ${30-botW} ${baseY-8} ${30-botW} ${baseY} `+
+                `L ${30+botW} ${baseY} C ${30+botW} ${baseY-8} ${30+topW+2} ${midY} ${30+topW} ${neckY} Z`;
+  return `<svg viewBox="0 0 60 100" xmlns="http://www.w3.org/2000/svg"><defs>`+
+    `<linearGradient id="${g}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${mid}"/>`+
+    `<stop offset=".35" stop-color="${light}"/><stop offset="1" stop-color="${dark}"/></linearGradient></defs>`+
+    `<ellipse cx="30" cy="${baseY+1}" rx="${botW+2}" ry="3.5" fill="${dark}" opacity=".5"/>`+
+    `<path d="${torso}" fill="url(#${g})"/>`+
+    `<circle cx="30" cy="${headCy}" r="${headR}" fill="url(#${g})"/>`+
+    `<rect x="${30-topW*0.6}" y="${neckY-3}" width="${topW*1.2}" height="4" rx="2" fill="${mid}" opacity=".5"/></svg>`;
+}
+
+// Lokale (nicht synchronisierte) POV-Navigation + Zieh-Zustände
+let draggingFig = null;   // {tid,fid,mode:'move'|'resize'} – Echo-Schutz
+let povDrag = null;       // Umschau-Ziehen im POV
+let grabDX = 0, grabDY = 0, resizeStartY = 0, resizeStartSize = 1;
+const povLocal = {};      // teamId -> {figId, yaw}  (rein lokal je Betrachter)
+
+function addTeam(phase){
+  state.teams.push({ id:'t'+Date.now(), phase, situation:'Um welche Situation geht es?',
+    style:'wood', povEnabled:false, trayTitles:IT_TITLES.slice(), figures:[] });
+  render(); broadcast();
+}
+function duplicateTeam(teamId){
+  const t = state.teams.find(x=>x.id===teamId); if(!t) return;
+  const copy = JSON.parse(JSON.stringify(t));
+  copy.id = 't'+Date.now(); copy.povEnabled = false;
+  copy.figures.forEach((f,i)=> f.id = 'f'+Date.now()+'_'+i);
+  state.teams.splice(state.teams.indexOf(t)+1, 0, copy);
+  render(); broadcast();
+}
+function addFigure(teamId, kind){
+  const t = state.teams.find(x=>x.id===teamId); if(!t) return;
+  t.figures.push({ id:'f'+Date.now()+'_'+Math.floor(Math.random()*1000), kind,
+    title:(t.trayTitles[kind]||''), props:['','',''],
+    x: 42+Math.random()*16, y: 50+Math.random()*14, size:1 });
+  render(); broadcast();
+}
+
+function renderTeams(opts={}){ renderTeamList($('#teamList'), 'reality', opts); }
+function renderTeamList(list, phase, opts={}){
+  const teams = state.teams.filter(t => (t.phase||'reality') === phase);
+  const existing = $$('.it-tool', list).map(t => t.dataset.id);
+  const wanted = teams.map(t => t.id);
+  if(existing.join(',') !== wanted.join(',')){
+    list.innerHTML = '';
+    teams.forEach(t => list.appendChild(buildTeamEl(t)));
+  }
+  teams.forEach(updateTeamEl);
+}
+
+function buildTeamEl(team){
+  const el = document.createElement('div');
+  el.className = 'tool it-tool'; el.dataset.id = team.id;
+  const tray = team.trayTitles.map((_,k) =>
+    `<div class="it-tray-item" data-kind="${k}">`+
+      `<button class="it-tray-fig" title="Figur aufs Brett stellen">${figureSVG(k, team.style)}</button>`+
+      `<input class="it-tray-title" data-kind="${k}" value="${escapeHtml(team.trayTitles[k]||'')}">`+
+    `</div>`).join('');
+  el.innerHTML =
+    `<div class="it-toolbar">`+
+      `<span class="it-title">Inneres Team – Aufstellung</span>`+
+      `<button class="btn ghost small js-it-style">Stein-Ansicht</button>`+
+      `<button class="btn ghost small coach-only js-it-pov" aria-pressed="false" title="Freigeben: in eine Figur schlüpfen">Perspektivwechsel</button>`+
+      `<button class="btn ghost small coach-only js-it-dupe">Team duplizieren</button>`+
+      `<button class="btn ghost small coach-only js-it-del">Entfernen</button>`+
+    `</div>`+
+    `<div class="it-wrap">`+
+      `<div class="it-tray"><div class="it-tray-head">Figuren<br>anklicken</div>${tray}</div>`+
+      `<div class="it-stagewrap"><div class="it-stage">`+
+        itFloorSVG()+
+        `<div class="it-redline" style="top:${IT_TOP}%;transform:translateY(-50%)"><input class="it-situation" value="${escapeHtml(team.situation||'')}"></div>`+
+        `<div class="it-empty">Klicke links eine Figur an – sie erscheint auf dem Brett und lässt sich frei bewegen.</div>`+
+        `<div class="it-pov" hidden></div>`+
+      `</div></div>`+
+    `</div>`;
+
+  const tid = team.id;
+  const lt = () => state.teams.find(x => x.id === tid);
+
+  $('.js-it-style', el).addEventListener('click', () => {
+    const t = lt(); if(!t) return; t.style = (t.style==='wood') ? 'stone' : 'wood'; render(); broadcast();
+  });
+  const povBtn = $('.js-it-pov', el);
+  if(povBtn) povBtn.addEventListener('click', () => {
+    const t = lt(); if(!t) return;
+    t.povEnabled = !t.povEnabled;
+    if(!t.povEnabled) delete povLocal[tid];
+    render(); broadcast();
+  });
+  $('.js-it-dupe', el).addEventListener('click', () => duplicateTeam(tid));
+  $('.js-it-del', el).addEventListener('click', () => {
+    state.teams = state.teams.filter(x => x.id !== tid); delete povLocal[tid]; render(); broadcast();
+  });
+  $('.it-situation', el).addEventListener('input', e => {
+    const t = lt(); if(!t) return; t.situation = e.target.value; broadcast();
+  });
+  $$('.it-tray-fig', el).forEach(btn => btn.addEventListener('click', () => {
+    addFigure(tid, Number(btn.parentElement.dataset.kind));
+  }));
+  $$('.it-tray-title', el).forEach(inp => inp.addEventListener('input', e => {
+    const t = lt(); if(!t) return; t.trayTitles[Number(inp.dataset.kind)] = e.target.value; broadcast();
+  }));
+
+  // POV-Overlay: Ziehen = umschauen, Tippen auf Figur = Perspektive wechseln
+  const overlay = $('.it-pov', el);
+  overlay.addEventListener('pointerdown', e => {
+    if(e.target.closest('.it-pov-exit')) return;
+    const pv = povLocal[tid]; if(!pv) return;
+    povDrag = { tid, startX:e.clientX, startYaw: pv.yaw||0, moved:0 };
+    try { overlay.setPointerCapture(e.pointerId); } catch(_){}
+  });
+  overlay.addEventListener('pointermove', e => {
+    if(!povDrag || povDrag.tid !== tid) return;
+    const pv = povLocal[tid]; if(!pv) return;
+    const dx = e.clientX - povDrag.startX;
+    povDrag.moved = Math.max(povDrag.moved, Math.abs(dx));
+    const w = overlay.getBoundingClientRect().width || 1;
+    pv.yaw = povDrag.startYaw - dx / w * 2.6;
+    renderPov(lt(), overlay);
+  });
+  overlay.addEventListener('pointerup', e => {
+    if(povDrag && povDrag.moved < 6){
+      const r = overlay.getBoundingClientRect();
+      const xp = (e.clientX - r.left) / r.width * 100;
+      let best = null, bd = 12;
+      (overlay._figPos||[]).forEach(p => { const d = Math.abs(p.xPct - xp); if(d < bd){ bd = d; best = p; } });
+      if(best){ const pv = povLocal[tid]; if(pv){ pv.figId = best.fid; pv.yaw = 0; renderPov(lt(), overlay); } }
+    }
+    povDrag = null;
+  });
+  overlay.addEventListener('click', e => {
+    if(e.target.closest('.it-pov-exit')){ delete povLocal[tid]; updateTeamEl(lt()); }
+  });
+  return el;
+}
+
+function selectFig(el){
+  const stage = el.closest('.it-stage'); if(!stage) return;
+  $$('.it-fig.sel', stage).forEach(x => x.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function placeFig(el, f){
+  const p = itProject(f.x, f.y);
+  el.style.left = p.sx + '%'; el.style.top = p.sy + '%';
+  el.style.width = (IT_BASE_W * p.scale * (f.size||1)) + '%';
+  el.style.zIndex = String(Math.round(f.y));
+}
+
+function buildFigureEl(team, fig){
+  const el = document.createElement('div');
+  el.className = 'it-fig'; el.dataset.id = fig.id;
+  el.innerHTML =
+    `<input class="it-fig-title" value="${escapeHtml(fig.title||'')}" placeholder="Titel">`+
+    `<div class="it-fig-body">${figureSVG(fig.kind, team.style)}</div>`+
+    `<div class="it-fig-props">`+
+      [0,1,2].map(i => `<input data-i="${i}" placeholder="Eigenschaft ${i+1}" value="${escapeHtml((fig.props&&fig.props[i])||'')}">`).join('')+
+    `</div>`+
+    `<button class="it-del" title="Figur entfernen">✕</button>`+
+    `<div class="it-grip" title="Größe ändern"></div>`;
+
+  const tid = team.id, fid = fig.id;
+  const lt = () => state.teams.find(x => x.id === tid);
+  const lf = () => { const t = lt(); return t && t.figures.find(f => f.id === fid); };
+
+  const body = $('.it-fig-body', el);
+  body.addEventListener('pointerdown', e => {
+    const t = lt(), f = lf(); if(!t || !f) return;
+    e.preventDefault();
+    // POV freigegeben -> Klick auf Figur = hineinschlüpfen (kein Verschieben)
+    if(t.povEnabled){ povLocal[tid] = { figId: fid, yaw: 0 }; updateTeamEl(lt()); return; }
+    selectFig(el);
+    const stage = el.closest('.it-stage'), r = stage.getBoundingClientRect();
+    const p = itProject(f.x, f.y);
+    grabDX = p.sx - (e.clientX - r.left) / r.width * 100;
+    grabDY = p.sy - (e.clientY - r.top) / r.height * 100;
+    draggingFig = { tid, fid, mode:'move' };
+    el.classList.add('dragging');
+    try { body.setPointerCapture(e.pointerId); } catch(_){}
+  });
+  body.addEventListener('pointermove', e => {
+    if(!draggingFig || draggingFig.fid !== fid || draggingFig.mode !== 'move') return;
+    const f = lf(); if(!f) return;
+    const stage = el.closest('.it-stage'), r = stage.getBoundingClientRect();
+    const sx = (e.clientX - r.left) / r.width * 100 + grabDX;
+    const sy = (e.clientY - r.top) / r.height * 100 + grabDY;
+    const u = itUnproject(sx, sy); f.x = Math.round(u.bx); f.y = Math.round(u.by);
+    placeFig(el, f); throttledBroadcast();
+  });
+  const moveEnd = () => { if(draggingFig && draggingFig.fid === fid && draggingFig.mode==='move'){ draggingFig = null; el.classList.remove('dragging'); broadcast(); } };
+  body.addEventListener('pointerup', moveEnd);
+  body.addEventListener('pointercancel', moveEnd);
+
+  const grip = $('.it-grip', el);
+  grip.addEventListener('pointerdown', e => {
+    const f = lf(); if(!f) return;
+    e.preventDefault(); e.stopPropagation(); selectFig(el);
+    draggingFig = { tid, fid, mode:'resize' };
+    resizeStartY = e.clientY; resizeStartSize = f.size || 1;
+    try { grip.setPointerCapture(e.pointerId); } catch(_){}
+  });
+  grip.addEventListener('pointermove', e => {
+    if(!draggingFig || draggingFig.fid !== fid || draggingFig.mode !== 'resize') return;
+    const f = lf(); if(!f) return;
+    const dy = resizeStartY - e.clientY;
+    f.size = Math.max(0.4, Math.min(3, resizeStartSize * (1 + dy/150)));
+    placeFig(el, f); throttledBroadcast();
+  });
+  const resizeEnd = () => { if(draggingFig && draggingFig.fid === fid && draggingFig.mode==='resize'){ draggingFig = null; broadcast(); } };
+  grip.addEventListener('pointerup', resizeEnd);
+  grip.addEventListener('pointercancel', resizeEnd);
+
+  $('.it-fig-title', el).addEventListener('input', e => { const f = lf(); if(!f) return; f.title = e.target.value; broadcast(); });
+  $$('.it-fig-props input', el).forEach(inp => inp.addEventListener('input', e => {
+    const f = lf(); if(!f) return; if(!f.props) f.props = ['','',''];
+    f.props[Number(inp.dataset.i)] = e.target.value; broadcast();
+  }));
+  $('.it-del', el).addEventListener('click', () => {
+    const t = lt(); if(!t) return; t.figures = t.figures.filter(f => f.id !== fid); render(); broadcast();
+  });
+  return el;
+}
+
+function updateFigureEl(team, fig){
+  const stage = document.querySelector(`.it-tool[data-id="${team.id}"] .it-stage`); if(!stage) return;
+  const el = stage.querySelector(`.it-fig[data-id="${fig.id}"]`); if(!el) return;
+  const t = $('.it-fig-title', el);
+  if(document.activeElement !== t && t.value !== (fig.title||'')) t.value = fig.title||'';
+  $$('.it-fig-props input', el).forEach(inp => {
+    const i = Number(inp.dataset.i), val = (fig.props && fig.props[i]) || '';
+    if(document.activeElement !== inp && inp.value !== val) inp.value = val;
+  });
+  if(!(draggingFig && draggingFig.fid === fig.id)) placeFig(el, fig);   // eigenen Zieh-Punkt nicht durch Echos zurücksetzen
+}
+
+function updateTeamEl(team){
+  const el = document.querySelector(`.it-tool[data-id="${team.id}"]`); if(!el) return;
+  $('.js-it-style', el).textContent = team.style === 'wood' ? 'Stein-Ansicht' : 'Holz-Ansicht';
+  const povBtn = $('.js-it-pov', el); if(povBtn) povBtn.setAttribute('aria-pressed', String(!!team.povEnabled));
+  const sit = $('.it-situation', el);
+  if(document.activeElement !== sit && sit.value !== (team.situation||'')) sit.value = team.situation||'';
+  $$('.it-tray-title', el).forEach(inp => {
+    const k = Number(inp.dataset.kind), val = team.trayTitles[k] || '';
+    if(document.activeElement !== inp && inp.value !== val) inp.value = val;
+  });
+  const stage = $('.it-stage', el);
+  const styleChanged = stage.dataset.style !== team.style;
+  if(styleChanged){
+    stage.dataset.style = team.style;
+    $$('.it-tray-fig', el).forEach(btn => { btn.innerHTML = figureSVG(Number(btn.parentElement.dataset.kind), team.style); });
+  }
+  const existing = $$('.it-fig', stage).map(f => f.dataset.id);
+  const wanted = team.figures.map(f => f.id);
+  if(styleChanged || existing.join(',') !== wanted.join(',')){
+    $$('.it-fig', stage).forEach(f => f.remove());
+    const ref = $('.it-empty', stage);
+    team.figures.forEach(f => stage.insertBefore(buildFigureEl(team, f), ref));
+  }
+  team.figures.forEach(f => updateFigureEl(team, f));
+  $('.it-empty', el).style.display = team.figures.length ? 'none' : '';
+  const overlay = $('.it-pov', el);
+  if(team.povEnabled && povLocal[team.id]) renderPov(team, overlay);
+  else { overlay.hidden = true; overlay.innerHTML = ''; if(!team.povEnabled) delete povLocal[team.id]; }
+}
+
+// POV: die Szene aus Kopfhöhe der gewählten Figur, mit frei drehbarem Blick (Yaw).
+function renderPov(team, overlay){
+  const pv = povLocal[team.id];
+  if(!pv){ overlay.hidden = true; overlay.innerHTML = ''; return; }
+  const v = team.figures.find(f => f.id === pv.figId);
+  if(!v){ delete povLocal[team.id]; overlay.hidden = true; overlay.innerHTML = ''; return; }
+  overlay.hidden = false;
+  const FOV = 0.95, yaw = pv.yaw || 0;
+  const pos = [];
+  const figHtml = team.figures.filter(f => f.id !== v.id).map(f => {
+    const dx = f.x - v.x, dy = f.y - v.y;
+    const theta = Math.atan2(dx, -dy);                 // 0 = geradeaus (zur hinteren Kante)
+    const rel = Math.atan2(Math.sin(theta-yaw), Math.cos(theta-yaw));
+    if(Math.abs(rel) > FOV) return '';
+    const d = Math.hypot(dx, dy), tt = Math.max(0, Math.min(1, d/120));
+    const xPct = 50 + (rel/FOV)*46;
+    const feetY = 38 + (1-tt)*54;
+    const scl = (1.35*(1-tt) + 0.45*tt) * (f.size||1);
+    const centered = Math.abs(rel) < 0.17;             // Eigenschaften nur im Blickzentrum
+    const props = (f.props||[]).filter(x => x && x.trim());
+    pos.push({ fid:f.id, xPct });
+    return `<div class="it-pov-fig" style="left:${xPct}%;top:${feetY}%;width:${17*scl}%;z-index:${Math.round(1000-d*6)}">`+
+      `<div class="t">${escapeHtml(f.title||'')}</div>${figureSVG(f.kind, team.style)}`+
+      (centered && props.length ? `<div class="p">${props.map(escapeHtml).join('<br>')}</div>` : '')+
+    `</div>`;
+  }).join('');
+  overlay._figPos = pos;
+  overlay.innerHTML =
+    `<div class="it-pov-horizon"><span class="it-pov-sit">${escapeHtml(team.situation||'')}</span></div>`+
+    figHtml+
+    `<div class="it-pov-hint">Ziehen = umschauen · Figur antippen = Perspektive wechseln</div>`+
+    `<button class="btn small it-pov-exit js-pov-exit">Ansicht verlassen</button>`;
+}
+
+/* ==========================================================================
    7. PDF-Export – über die Druckfunktion des Browsers ("Als PDF speichern").
    Bewusst ohne externe Bibliothek: robust, offline, keine Abhängigkeiten.
    ========================================================================== */
@@ -1176,6 +1620,7 @@ $('#btnAddScaleOptions').addEventListener('click', () => addScale('options'));
 $('#btnAddScaleWill').addEventListener('click', () => addScale('will'));
 $('#btnAddBiq').addEventListener('click', () => addBiq('reality'));
 $('#btnAddBiqGoal').addEventListener('click', () => addBiq('goal'));
+$('#btnAddTeam').addEventListener('click', () => addTeam('reality'));
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
