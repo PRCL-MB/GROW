@@ -280,7 +280,7 @@
 
   /* ---------- 7. Druck-/PDF-Layout ---------- */
   @media print{
-    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .scale .track, .overlay, .item-del, .item-take{ display:none !important; }
+    header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .overlay, .item-del, .item-take, .export-row{ display:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -288,6 +288,9 @@
     input.text, textarea.text{ border:1px solid #bbb; }
     .print-goal{ display:block !important; }
     .scale{ border:1px solid #ccc; border-radius:8px; }
+    /* Farbige Ergebnis-Elemente wirklich drucken (Browser lassen Hintergrundfarben sonst weg) */
+    .biq-dot, .biq-square, .marker, .marker .val, .scale .track, .stars .star{
+      -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
   .print-goal{ display:none; }
 </style>
@@ -416,11 +419,10 @@
       <span class="lab">Notizen (optional)</span>
       <textarea class="text" id="in-will" style="min-height:90px" placeholder="Freie Notizen …"></textarea>
     </label>
+    <div class="center export-row" style="margin-top:26px">
+      <button class="btn ghost small" id="btnExport">Als PDF exportieren</button>
+    </div>
   </section>
-
-  <div class="center coach-only" style="margin-top:28px">
-    <button class="btn ghost small" id="btnExport">Als PDF exportieren</button>
-  </div>
 </main>
 
 <div class="rolebar" id="roleBar"></div>
