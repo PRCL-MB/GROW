@@ -272,10 +272,16 @@
     overflow:hidden; background:linear-gradient(#e9f0f4,#d6e0e6); touch-action:none; user-select:none; -webkit-user-select:none; }
   @media (prefers-color-scheme: dark){ .it-stage{ background:linear-gradient(#222a30,#161b1f); } }
   /* Vollbild: quadratische Bühne mittig, ringsum abgedunkelt */
-  .it-stagewrap:fullscreen, .it-stagewrap:-webkit-full-screen{ background:#0c0e0f; display:flex; align-items:center; justify-content:center; padding:0; width:100%; height:100%; }
-  .it-stagewrap:fullscreen .it-stage, .it-stagewrap:-webkit-full-screen .it-stage{ width:min(100vw,100vh); height:min(100vw,100vh); aspect-ratio:auto; border-radius:0; }
+  /* Vollbild: getrennte Regeln, damit ein von Safari unbekanntes :fullscreen NICHT
+     die -webkit-Variante mit ungültig macht (sonst wäre die Bühne zu hoch = unten abgeschnitten). */
+  .it-stagewrap:fullscreen{ background:#0c0e0f; display:flex; align-items:center; justify-content:center; padding:0; }
+  .it-stagewrap:-webkit-full-screen{ background:#0c0e0f; display:flex; align-items:center; justify-content:center; padding:0; }
+  /* Quadratische Bühne, die IMMER komplett ins Bild passt */
+  .it-stagewrap:fullscreen .it-stage{ width:min(100vw,100vh); height:min(100vw,100vh); aspect-ratio:auto; border-radius:0; }
+  .it-stagewrap:-webkit-full-screen .it-stage{ width:min(100vw,100vh); height:min(100vw,100vh); aspect-ratio:auto; border-radius:0; }
   .it-full-exit{ position:absolute; top:8px; left:8px; z-index:300; display:none; }
-  .it-stagewrap:fullscreen .it-full-exit, .it-stagewrap:-webkit-full-screen .it-full-exit{ display:inline-flex; }
+  .it-stagewrap:fullscreen .it-full-exit{ display:inline-flex; }
+  .it-stagewrap:-webkit-full-screen .it-full-exit{ display:inline-flex; }
   .it-floor{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
   .it-redline{ position:absolute; left:0; right:0; display:flex; justify-content:center; z-index:150; }
   .it-situation{ text-align:center; border:none; background:color-mix(in srgb,var(--surface) 82%, transparent);
@@ -306,6 +312,7 @@
   .it-pov{ position:absolute; inset:0; overflow:hidden; touch-action:none; cursor:ew-resize; z-index:200;
     background:linear-gradient(#bcd6e6 0%,#bcd6e6 40%,#9c7b57 40%,#6f5236 100%); }
   @media (prefers-color-scheme: dark){ .it-pov{ background:linear-gradient(#2a3844 0%,#2a3844 40%,#4a3a29 40%,#2c2016 100%); } }
+  .it-pov-floor{ position:absolute; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
   .it-pov-sitw{ position:absolute; top:4%; transform:translateX(-50%); text-align:center; pointer-events:none; z-index:1500; }
   .it-pov-sit{ display:inline-block; background:rgba(255,255,255,.9); color:#c0392b; font-weight:600; font-size:.8rem;
     padding:3px 12px; border-radius:6px; border-bottom:2px solid #c0392b; box-shadow:0 2px 6px rgba(0,0,0,.25); white-space:nowrap; }
@@ -1231,13 +1238,15 @@ const IT_TITLES = ['Der Antreiber','Der Kritiker','Der Ängstliche','Der Mutige'
   'Der Zweifler','Der Beschützer','Der Perfektionist','Der Gelassene',
   'Der Pflichtbewusste','Der Genießer','Der Neugierige','Der Skeptiker'];
 const IT_BASE_W = 13;                     // Grundbreite einer Figur in % der Bühne
-// Projektion der Brettfläche (Trapez, das nach hinten schmaler wird) in Bühnen-%
-const IT_FAR_L=27, IT_FAR_R=73, IT_NEAR_L=3, IT_NEAR_R=97, IT_TOP=15, IT_BOT=90;
+// Parkett-Farbtöne (im Planungsboden UND im POV-Boden, gleiche Struktur = bessere Orientierung)
+const IT_WOOD_A = '#d9b57e', IT_WOOD_B = '#bd8b4a', IT_SEAM = '#7a5326';
+// Projektion der Brettfläche (Trapez, nur leicht nach hinten schmaler = flacher/gerader) in Bühnen-%
+const IT_FAR_L=16, IT_FAR_R=84, IT_NEAR_L=5, IT_NEAR_R=95, IT_TOP=17, IT_BOT=90;
 function itProject(bx,by){
   const t = by/100;
   const lx = IT_FAR_L + (IT_NEAR_L-IT_FAR_L)*t;
   const rx = IT_FAR_R + (IT_NEAR_R-IT_FAR_R)*t;
-  return { sx: lx + (rx-lx)*(bx/100), sy: IT_TOP + (IT_BOT-IT_TOP)*t, scale: 0.55 + 0.8*t };
+  return { sx: lx + (rx-lx)*(bx/100), sy: IT_TOP + (IT_BOT-IT_TOP)*t, scale: 0.68 + 0.6*t };
 }
 function itUnproject(sx,sy){
   let t = (sy-IT_TOP)/(IT_BOT-IT_TOP); t = Math.max(0,Math.min(1,t));
@@ -1247,20 +1256,48 @@ function itUnproject(sx,sy){
   return { bx: Math.max(0,Math.min(100,bx)), by: t*100 };
 }
 
-// Boden-Raster als SVG (perspektivische Fläche, füllt die Bühne)
+// Boden als perspektivisches Holzparkett (N×N Tafeln, Maserung wechselnd) + rote Frontkante
 function itFloorSVG(){
-  const p = (bx,by)=>{ const q=itProject(bx,by); return q.sx+' '+q.sy; };
-  const poly = `${p(0,0)} ${p(100,0)} ${p(100,100)} ${p(0,100)}`;
-  let lines='';
-  for(let i=0;i<=5;i++){ const by=i*20; const a=itProject(0,by), b=itProject(100,by);
-    lines += `<line x1="${a.sx}" y1="${a.sy}" x2="${b.sx}" y2="${b.sy}"/>`; }
-  for(let i=0;i<=5;i++){ const bx=i*20; const a=itProject(bx,0), b=itProject(bx,100);
-    lines += `<line x1="${a.sx}" y1="${a.sy}" x2="${b.sx}" y2="${b.sy}"/>`; }
+  const N=6; let tiles='';
+  for(let i=0;i<N;i++) for(let j=0;j<N;j++){
+    const by0=i*100/N, by1=(i+1)*100/N, bx0=j*100/N, bx1=(j+1)*100/N;
+    const p1=itProject(bx0,by0), p2=itProject(bx1,by0), p3=itProject(bx1,by1), p4=itProject(bx0,by1);
+    const base = ((i+j)%2) ? IT_WOOD_B : IT_WOOD_A;
+    tiles += `<polygon points="${p1.sx.toFixed(1)},${p1.sy.toFixed(1)} ${p2.sx.toFixed(1)},${p2.sy.toFixed(1)} ${p3.sx.toFixed(1)},${p3.sy.toFixed(1)} ${p4.sx.toFixed(1)},${p4.sy.toFixed(1)}" fill="${base}" stroke="${IT_SEAM}" stroke-width=".5" stroke-opacity=".5"/>`;
+    const horiz = ((i+j)%2)===0;                 // Maserung je Tafel um 90° gedreht (Tafelparkett)
+    for(let k=1;k<=2;k++){
+      let a,b;
+      if(horiz){ const yy=by0+(by1-by0)*k/3; a=itProject(bx0,yy); b=itProject(bx1,yy); }
+      else     { const xx=bx0+(bx1-bx0)*k/3; a=itProject(xx,by0); b=itProject(xx,by1); }
+      tiles += `<line x1="${a.sx.toFixed(1)}" y1="${a.sy.toFixed(1)}" x2="${b.sx.toFixed(1)}" y2="${b.sy.toFixed(1)}" stroke="${IT_SEAM}" stroke-width=".3" stroke-opacity=".22"/>`;
+    }
+  }
   const fl = itProject(0,100), fr = itProject(100,100);   // vordere Kante
   return `<svg class="it-floor" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`+
-    `<polygon points="${poly}" fill="#c9b18f" opacity=".33"/>`+
-    `<g stroke="#9c8a6b" stroke-width=".4" opacity=".65" fill="none">${lines}</g>`+
+    tiles +
     `<line x1="${fl.sx}" y1="${fl.sy}" x2="${fr.sx}" y2="${fr.sy}" stroke="#c0392b" stroke-width="1" opacity=".85"/></svg>`;
+}
+
+// Derselbe Parkettboden aus der POV-Perspektive (dreht mit dem Blick = Orientierungshilfe).
+// Projiziert jede Bodentafel über Peilung (rel) + Distanz auf den Schirm; nur Tafeln im Blickfeld.
+function itPovFloorSVG(v, yaw, FOV){
+  const N=6;
+  const pt=(bx,by)=>{
+    const dx=bx-v.x, dy=by-v.y;
+    const th=Math.atan2(dx,-dy);
+    const rel=Math.atan2(Math.sin(th-yaw), Math.cos(th-yaw));
+    const d=Math.hypot(dx,dy), tt=Math.max(0,Math.min(1,d/120));
+    return { sx:50+(rel/FOV)*46, sy:40+(1-tt)*52, rel };
+  };
+  let tiles='';
+  for(let i=0;i<N;i++) for(let j=0;j<N;j++){
+    const by0=i*100/N, by1=(i+1)*100/N, bx0=j*100/N, bx1=(j+1)*100/N;
+    const c=[pt(bx0,by0),pt(bx1,by0),pt(bx1,by1),pt(bx0,by1)];
+    if(c.some(p=>Math.abs(p.rel)>1.5)) continue;   // hinter dem Rücken / zu weit seitlich -> weglassen
+    const base=((i+j)%2) ? IT_WOOD_B : IT_WOOD_A;
+    tiles += `<polygon points="${c.map(p=>p.sx.toFixed(1)+','+p.sy.toFixed(1)).join(' ')}" fill="${base}" stroke="${IT_SEAM}" stroke-width=".4" stroke-opacity=".45"/>`;
+  }
+  return `<svg class="it-pov-floor" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${tiles}</svg>`;
 }
 
 // Figuren (ohne Gesicht): 12 Holzfiguren mit je eigener Silhouette & Holzton
@@ -1634,7 +1671,7 @@ function renderPov(team, overlay){
   const v = team.figures.find(f => f.id === pv.figId);
   if(!v){ delete povLocal[team.id]; overlay.hidden = true; overlay.innerHTML = ''; return; }
   overlay.hidden = false;
-  const FOV = 0.95, yaw = pv.yaw || 0;
+  const FOV = 1.2, yaw = pv.yaw || 0;              // etwas breiterer Blickwinkel
   // Peilung (relativer Blickwinkel) + Distanz eines Brett-Punktes zur Betrachterfigur
   const bearing = (x,y) => {
     const dx = x - v.x, dy = y - v.y;
@@ -1665,7 +1702,7 @@ function renderPov(team, overlay){
     ? `<div class="it-pov-sitw" style="left:${50 + (sb.rel/FOV)*46}%"><span class="it-pov-sit">${escapeHtml(team.situation||'')}</span></div>`
     : '';
   overlay.innerHTML =
-    sitHtml + figHtml +
+    itPovFloorSVG(v, yaw, FOV) + sitHtml + figHtml +
     `<div class="it-pov-hint">Ziehen = umschauen · Figur antippen = Perspektive wechseln</div>`+
     `<button class="btn small it-pov-exit js-pov-exit">Ansicht verlassen</button>`;
 }
