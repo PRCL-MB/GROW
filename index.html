@@ -289,14 +289,13 @@
   .it-situation:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
   .it-fig{ position:absolute; transform:translate(-50%,-100%); display:flex; flex-direction:column; align-items:center; }
   /* flacher Kontaktschatten, der die Figur auf dem Parkett verankert (liegt hinter der Figur) */
-  .it-fig-ground{ position:absolute; left:50%; bottom:0; width:62%; aspect-ratio:3 / 1; transform:translate(-50%,40%);
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.45), rgba(0,0,0,0) 66%); pointer-events:none; }
+  .it-fig-ground{ position:absolute; left:50%; bottom:0; width:78%; aspect-ratio:3.4 / 1; transform:translate(-50%,55%);
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.32), rgba(0,0,0,0) 68%); pointer-events:none; }
   .it-fig-title{ border:none; background:color-mix(in srgb,var(--surface) 88%, transparent); color:var(--ink);
     font-size:.66rem; font-weight:600; text-align:center; border-radius:5px; padding:1px 5px; max-width:120px; margin-bottom:1px; }
   .it-fig-title:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
   .it-fig-body{ display:block; cursor:grab; width:100%; }
-  /* aspect-ratio streckt die Figur in ein deutlich höheres Feld -> sie steht aufrecht statt zu "liegen" */
-  .it-fig-body svg{ display:block; width:100%; height:auto; aspect-ratio:60 / 150; filter:drop-shadow(0 1px 1px rgba(0,0,0,.22)); }
+  .it-fig-body svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 1px 1px rgba(0,0,0,.2)); }
   .it-fig.dragging .it-fig-body{ cursor:grabbing; }
   .it-fig-props{ position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px;
     display:none; flex-direction:column; gap:2px; width:132px; background:var(--surface); border:1px solid var(--line);
@@ -1241,7 +1240,10 @@ function updateActionEl(a){
 const IT_TITLES = ['Der Antreiber','Der Kritiker','Der Ängstliche','Der Mutige',
   'Der Zweifler','Der Beschützer','Der Perfektionist','Der Gelassene',
   'Der Pflichtbewusste','Der Genießer','Der Neugierige','Der Skeptiker'];
-const IT_BASE_W = 12;                     // Grundbreite einer Figur in % der Bühne (Höhe folgt schlank/hoch)
+const IT_BASE_W = 11;                     // Grundbreite einer Figur in % der Bühne
+// Radius der 3D-Fußscheibe je Silhouette (viewBox-Einheiten) – gibt der Figur räumliche Standfläche
+const IT_BASE_RX = { pawn:16, slim:7.5, stout:19, bishop:15, rook:14, waist:7.5, egg:13, cone:15, bulb:17,
+  gem:9, mushroom:11, teardrop:13, pebble:17, crystal:11, menhir:10, boulder:18, slate:13, angular:18 };
 // Parkett-Farbtöne (im Planungsboden UND im POV-Boden, gleiche Struktur = bessere Orientierung)
 const IT_WOOD_A = '#d9b57e', IT_WOOD_B = '#bd8b4a', IT_SEAM = '#7a5326';
 // Projektion der Brettfläche (Trapez, nur leicht nach hinten schmaler = flacher/gerader) in Bühnen-%
@@ -1377,22 +1379,28 @@ function stoneTexture(set){
   return `<ellipse cx="25" cy="34" rx="10" ry="20" fill="${l}" opacity=".18"/>`;
 }
 function figureSVG(kind, style){
-  const g='itg'+(_itGrad++), c='itc'+(_itGrad++);
+  const g='itg'+(_itGrad++), c='itc'+(_itGrad++), b='itb'+(_itGrad++);
   const set = style==='stone' ? FIG_STONE[kind%12] : FIG_WOOD[kind%12];
   const geo = figSil(set.s);
-  const grad = style==='stone'
-    ? `<linearGradient id="${g}" x1="0.1" y1="0" x2="0.2" y2="1"><stop offset="0" stop-color="${set.l}"/><stop offset=".5" stop-color="${set.m}"/><stop offset="1" stop-color="${set.d}"/></linearGradient>`
-    : `<linearGradient id="${g}" x1="0" y1="0.1" x2="1" y2="0.25"><stop offset="0" stop-color="${set.l}"/><stop offset=".45" stop-color="${set.m}"/><stop offset="1" stop-color="${set.d}"/></linearGradient>`;
+  const brx = IT_BASE_RX[set.s] || 14;
+  // Zylinder-Gradient (dunkel-hell-mittel-dunkel quer) = runde Volumen-Tiefe statt flach
+  const bodyGrad = `<linearGradient id="${g}" x1="0" y1="0" x2="1" y2="0">`+
+    `<stop offset="0" stop-color="${set.d}"/><stop offset=".24" stop-color="${set.l}"/>`+
+    `<stop offset=".52" stop-color="${set.m}"/><stop offset="1" stop-color="${set.d}"/></linearGradient>`;
+  // Fußscheibe als gewölbte Ellipse (im Winkel gesehener Kreis)
+  const baseGrad = `<radialGradient id="${b}" cx="0.5" cy="0.34" r="0.75">`+
+    `<stop offset="0" stop-color="${set.m}"/><stop offset="1" stop-color="${set.d}"/></radialGradient>`;
   const deco = style==='stone' ? stoneTexture(set) : woodGrain(set);
-  // viewBox knapp über der Fußlinie (~96) abgeschnitten, damit die Figur ohne Leerraum
-  // direkt auf dem Bodenpunkt aufsetzt (kein Schweben). Grounding via .it-fig-ground.
-  return `<svg viewBox="0 0 60 96.5" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`+
-    `<defs>${grad}<clipPath id="${c}">${geo}</clipPath></defs>`+
-    `<g fill="url(#${g})" stroke="${set.d}" stroke-width="0.6" stroke-opacity=".4">${geo}</g>`+
+  return `<svg viewBox="0 0 60 100" xmlns="http://www.w3.org/2000/svg">`+
+    `<defs>${bodyGrad}${baseGrad}<clipPath id="${c}">${geo}</clipPath></defs>`+
+    // 3D-Standfläche: elliptische Scheibe am Fuß -> Figur steht räumlich auf dem Boden
+    `<ellipse cx="30" cy="95" rx="${brx}" ry="${(brx*0.32).toFixed(1)}" fill="url(#${b})" stroke="${set.d}" stroke-opacity=".4"/>`+
+    // Körper/Kopf mit Zylinder-Schattierung
+    `<g fill="url(#${g})" stroke="${set.d}" stroke-width="0.6" stroke-opacity=".35">${geo}</g>`+
     `<g clip-path="url(#${c})">`+
       deco+
-      `<rect x="33" y="0" width="27" height="100" fill="${set.d}" opacity=".16"/>`+
-      `<ellipse cx="20" cy="36" rx="6.5" ry="26" fill="#ffffff" opacity="${style==='stone'?0.16:0.2}"/>`+
+      `<ellipse cx="21" cy="42" rx="5.5" ry="36" fill="#ffffff" opacity="${style==='stone'?0.15:0.2}"/>`+   // Glanzstreifen links
+      `<rect x="42" y="0" width="18" height="100" fill="${set.d}" opacity=".17"/>`+                          // Schattenkante rechts
     `</g></svg>`;
 }
 
