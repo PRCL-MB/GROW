@@ -332,6 +332,41 @@
     .it-tray-item{ width:70px; }
   }
 
+  /* Strukturierte Text-Tools (Zielkreuz, Wohlgeformt, SWOT, Wertequadrat) */
+  .tool .tool-title{ flex:1; font-weight:600; }
+  .wf-item{ margin:12px 0; }
+  .wf-item .wf-lab{ font-size:.82rem; font-weight:600; color:var(--accent); }
+  .wf-item .wf-sub{ font-size:.72rem; color:var(--ink-soft); margin:1px 0 4px; }
+  .wf-item textarea{ width:100%; min-height:50px; }
+
+  .smart-row{ display:flex; align-items:center; gap:10px; margin:9px 0; }
+  .smart-badge{ width:26px; height:26px; flex:none; border-radius:50%; background:var(--accent); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; }
+  .smart-row .smart-main{ flex:1; min-width:0; }
+  .smart-row .smart-lab{ font-size:.72rem; color:var(--ink-soft); }
+  .smart-row .smart-main input{ width:100%; border:none; border-bottom:1px dashed var(--line); background:none; font:inherit; color:var(--ink); padding:2px 0; }
+  .smart-row .smart-main input:focus{ outline:none; border-bottom-color:var(--accent); }
+  .smart-row .smart-done{ width:20px; height:20px; flex:none; accent-color:var(--accent); cursor:pointer; }
+
+  .swot-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .swot-cell{ border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--bg); }
+  .swot-cell .swot-head{ width:100%; border:none; background:none; font-weight:600; font-size:.85rem; color:var(--accent); border-bottom:1px dashed var(--line); padding:2px 0; margin-bottom:5px; }
+  .swot-cell textarea{ width:100%; min-height:72px; border:none; background:none; resize:vertical; font:inherit; color:var(--ink); }
+  .swot-cell .swot-head:focus, .swot-cell textarea:focus{ outline:none; }
+
+  .vq-grid{ display:grid; grid-template-columns:1fr 46px 1fr; grid-template-rows:auto 30px auto; gap:6px; align-items:center; }
+  .vq-cell{ border:1.5px solid var(--line); border-radius:10px; padding:8px; background:var(--surface); }
+  .vq-cell .vq-cap{ font-size:.68rem; color:var(--ink-soft); margin-bottom:3px; }
+  .vq-cell textarea{ width:100%; min-height:44px; border:none; background:none; resize:vertical; font:inherit; font-weight:500; color:var(--ink); }
+  .vq-cell textarea:focus{ outline:none; }
+  .vq-arrow{ text-align:center; color:var(--ink-soft); font-size:.66rem; line-height:1.2; }
+  .vq-hint{ font-size:.72rem; color:var(--ink-soft); text-align:center; margin-top:10px; }
+  @media (max-width:580px){
+    .swot-grid{ grid-template-columns:1fr; }
+    .vq-grid{ grid-template-columns:1fr; grid-template-rows:none; }
+    .vq-arrow{ display:none; }
+  }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -373,7 +408,7 @@
     .it-fig-props{ display:flex !important; }
     /* Farbige Ergebnis-Elemente wirklich drucken (Browser lassen Hintergrundfarben sonst weg) */
     .biq-dot, .biq-square, .marker, .marker .val, .scale .track, .stars .star,
-    .it-stage, .it-floor, .it-fig-body svg, .it-situation, .it-redline{
+    .it-stage, .it-floor, .it-fig-body svg, .it-situation, .it-redline, .smart-badge{
       -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
   .print-goal{ display:none; }
@@ -439,9 +474,13 @@
     </div>
     <div id="scaleListGoal"></div>
     <div id="biqListGoal"></div>
+    <div id="smartList"></div>
+    <div id="wellformList"></div>
     <div class="add-tool-row coach-only" style="text-align:center">
       <button class="btn ghost small" id="btnAddScaleGoal">+ Skala</button>
       <button class="btn ghost small" id="btnAddBiqGoal" title="Beobachtung im Quadrat">+ BiQ</button>
+      <button class="btn ghost small" id="btnAddSmart" title="Zielkreuz (SMART)">+ Zielkreuz</button>
+      <button class="btn ghost small" id="btnAddWellform" title="Wohlgeformtes Ziel">+ Wohlgeformt</button>
     </div>
   </section>
 
@@ -454,10 +493,14 @@
     </label>
     <div id="scaleList"></div>
     <div id="biqList"></div>
+    <div id="swotList"></div>
+    <div id="valuesqList"></div>
     <div id="teamList"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScale">+ Skala</button>
       <button class="btn ghost small" id="btnAddBiq" title="Beobachtung im Quadrat">+ BiQ</button>
+      <button class="btn ghost small" id="btnAddSwot" title="SWOT / Ressourcen & Hürden">+ SWOT</button>
+      <button class="btn ghost small" id="btnAddValuesq" title="Wertequadrat (Schulz von Thun)">+ Wertequadrat</button>
       <button class="btn ghost small" id="btnAddTeam" title="Inneres Team – Aufstellung">+ Inneres Team</button>
     </div>
   </section>
@@ -529,6 +572,10 @@ const state = {
   options: [],             // Options-Tool: [{id,text,score(0..5),score2(0..5)}]
   actions: [],             // Will-Tool:    [{id,text,until,done}]
   teams: [],               // Inneres-Team-Tool (Reality): [{id,phase,situation,style,povEnabled,trayTitles:[],figures:[{id,kind,title,props:[3],x,y,size}]}]
+  smart: [],               // Zielkreuz/SMART (Goal): [{id,phase,rows:[{text,done}×5]}]
+  wellform: [],            // Wohlgeformtheits-Check (Goal): [{id,phase,answers:[5]}]
+  swot: [],                // SWOT / Ressourcen & Hürden (Reality): [{id,phase,heads:[4],cells:[4]}]
+  valuesq: [],             // Wertequadrat (Reality): [{id,phase,v1,v2,e1,e2}]
   opt2axis: false,         // Zwei-Achsen-Bewertung der Optionen (vom Coach schaltbar)
   optAxisA: '',            // Beschriftung Achse A (Sterne links)
   optAxisB: ''             // Beschriftung Achse B (Sterne rechts)
@@ -771,6 +818,10 @@ function render(opts={}){
   renderOptions(opts);
   renderActions(opts);
   renderTeams(opts);
+  renderSmart(opts);
+  renderWellform(opts);
+  renderSwot(opts);
+  renderValuesq(opts);
 }
 
 /* ==========================================================================
@@ -1724,6 +1775,123 @@ function renderPov(team, overlay){
 }
 
 /* ==========================================================================
+   6e. Strukturierte Text-Tools – gemeinsames Muster:
+   addX (coach), renderXList (Neuaufbau nur bei ID-Änderung), buildXEl/updateXEl.
+   Felder in BEIDEN Rollen editierbar; Anlegen/Entfernen coach-only. Handler holen
+   das Objekt frisch per ID (live()), damit Sync (Object.assign) nichts verwaist.
+   ========================================================================== */
+const SMART_Q = [
+  ['S','Spezifisch','Was genau willst du – konkret?'],
+  ['M','Messbar','Woran ist es messbar/erkennbar?'],
+  ['A','Attraktiv','Warum ist es dir wichtig?'],
+  ['R','Realistisch','Machbar mit deinen Mitteln?'],
+  ['T','Terminiert','Bis wann?']
+];
+const WF_Q = [
+  ['Positiv formuliert','Was willst du erreichen – statt was du nicht mehr willst?'],
+  ['Selbst erreichbar','Was kannst du aus eigener Kraft dazu beitragen?'],
+  ['Woran erkennbar','Woran genau merkst du, dass du am Ziel bist (sehen/hören/fühlen)?'],
+  ['Kontext','Wo, wann und mit wem soll es gelten – und wo nicht?'],
+  ['Preis & Gewinn','Was kostet dich das Ziel, was gewinnst du – passt es zu deinem Umfeld?']
+];
+const SWOT_HEADS = ['Stärken','Schwächen','Chancen','Risiken'];
+
+function listRebuild(list, items, build, update){
+  const existing = $$('.tool', list).map(t => t.dataset.id), wanted = items.map(x => x.id);
+  if(existing.join(',') !== wanted.join(',')){ list.innerHTML=''; items.forEach(x => list.appendChild(build(x))); }
+  items.forEach(update);
+}
+function setIfIdle(inp, v){ if(document.activeElement !== inp && inp.value !== v) inp.value = v; }
+
+// ---- Zielkreuz / SMART (Goal) --------------------------------------------
+function addSmart(phase){ state.smart.push({ id:'sm'+Date.now(), phase, rows:SMART_Q.map(()=>({text:'',done:false})) }); render(); broadcast(); }
+function renderSmart(opts={}){ listRebuild($('#smartList'), state.smart.filter(x=>(x.phase||'goal')==='goal'), buildSmartEl, updateSmartEl); }
+function buildSmartEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">Zielkreuz – SMART</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    SMART_Q.map((q,i)=>`<div class="smart-row"><span class="smart-badge">${q[0]}</span>`+
+      `<span class="smart-main"><span class="smart-lab">${q[1]} – ${q[2]}</span>`+
+      `<input data-i="${i}" placeholder="…"></span>`+
+      `<input type="checkbox" class="smart-done" data-i="${i}" title="erfüllt"></div>`).join('');
+  const id=o.id, live=()=>state.smart.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.smart=state.smart.filter(x=>x.id!==id); render(); broadcast(); });
+  $$('.smart-main input',el).forEach(inp=>inp.addEventListener('input',()=>{ const o=live(); if(!o)return; o.rows[+inp.dataset.i].text=inp.value; broadcast(); }));
+  $$('.smart-done',el).forEach(cb=>cb.addEventListener('change',()=>{ const o=live(); if(!o)return; o.rows[+cb.dataset.i].done=cb.checked; broadcast(); }));
+  return el;
+}
+function updateSmartEl(o){
+  const el=$(`#smartList .tool[data-id="${o.id}"]`); if(!el)return;
+  $$('.smart-main input',el).forEach(inp=>setIfIdle(inp, o.rows[+inp.dataset.i].text||''));
+  $$('.smart-done',el).forEach(cb=>{ const v=!!o.rows[+cb.dataset.i].done; if(cb.checked!==v) cb.checked=v; });
+}
+
+// ---- Wohlgeformtes Ziel (Goal) -------------------------------------------
+function addWellform(phase){ state.wellform.push({ id:'wf'+Date.now(), phase, answers:WF_Q.map(()=> '') }); render(); broadcast(); }
+function renderWellform(opts={}){ listRebuild($('#wellformList'), state.wellform.filter(x=>(x.phase||'goal')==='goal'), buildWfEl, updateWfEl); }
+function buildWfEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">Wohlgeformtes Ziel</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    WF_Q.map((q,i)=>`<div class="wf-item"><div class="wf-lab">${q[0]}</div><div class="wf-sub">${q[1]}</div>`+
+      `<textarea class="text" data-i="${i}"></textarea></div>`).join('');
+  const id=o.id, live=()=>state.wellform.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.wellform=state.wellform.filter(x=>x.id!==id); render(); broadcast(); });
+  $$('textarea',el).forEach(t=>t.addEventListener('input',()=>{ const o=live(); if(!o)return; o.answers[+t.dataset.i]=t.value; broadcast(); }));
+  return el;
+}
+function updateWfEl(o){
+  const el=$(`#wellformList .tool[data-id="${o.id}"]`); if(!el)return;
+  $$('textarea',el).forEach(t=>setIfIdle(t, o.answers[+t.dataset.i]||''));
+}
+
+// ---- SWOT / Ressourcen & Hürden (Reality) --------------------------------
+function addSwot(phase){ state.swot.push({ id:'sw'+Date.now(), phase, heads:SWOT_HEADS.slice(), cells:['','','',''] }); render(); broadcast(); }
+function renderSwot(opts={}){ listRebuild($('#swotList'), state.swot.filter(x=>(x.phase||'reality')==='reality'), buildSwotEl, updateSwotEl); }
+function buildSwotEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">SWOT · Ressourcen &amp; Hürden</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    `<div class="swot-grid">`+
+      [0,1,2,3].map(i=>`<div class="swot-cell"><input class="swot-head" data-i="${i}"><textarea data-i="${i}" placeholder="…"></textarea></div>`).join('')+
+    `</div>`;
+  const id=o.id, live=()=>state.swot.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.swot=state.swot.filter(x=>x.id!==id); render(); broadcast(); });
+  $$('.swot-head',el).forEach(inp=>inp.addEventListener('input',()=>{ const o=live(); if(!o)return; o.heads[+inp.dataset.i]=inp.value; broadcast(); }));
+  $$('.swot-cell textarea',el).forEach(t=>t.addEventListener('input',()=>{ const o=live(); if(!o)return; o.cells[+t.dataset.i]=t.value; broadcast(); }));
+  return el;
+}
+function updateSwotEl(o){
+  const el=$(`#swotList .tool[data-id="${o.id}"]`); if(!el)return;
+  $$('.swot-head',el).forEach(inp=>setIfIdle(inp, o.heads[+inp.dataset.i]||''));
+  $$('.swot-cell textarea',el).forEach(t=>setIfIdle(t, o.cells[+t.dataset.i]||''));
+}
+
+// ---- Wertequadrat (Reality, Schulz von Thun) -----------------------------
+function addValuesq(phase){ state.valuesq.push({ id:'vq'+Date.now(), phase, v1:'', v2:'', e1:'', e2:'' }); render(); broadcast(); }
+function renderValuesq(opts={}){ listRebuild($('#valuesqList'), state.valuesq.filter(x=>(x.phase||'reality')==='reality'), buildVqEl, updateVqEl); }
+function buildVqEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  const cell=(k,cap)=>`<div class="vq-cell"><div class="vq-cap">${cap}</div><textarea data-k="${k}" placeholder="…"></textarea></div>`;
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">Wertequadrat</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    `<div class="vq-grid">`+
+      cell('v1','Positiver Wert') + `<div class="vq-arrow">↔<br>positive Spannung</div>` + cell('v2','Positiver Gegenwert (Schwestertugend)')+
+      `<div class="vq-arrow">↓<br>Übertreibung</div><div class="vq-arrow">⤢ ⤡<br>Entwicklung</div><div class="vq-arrow">↓<br>Übertreibung</div>`+
+      cell('e1','Übertreibung (links)') + `<div class="vq-arrow"></div>` + cell('e2','Übertreibung (rechts)')+
+    `</div>`+
+    `<div class="vq-hint">Waagerecht = positive Spannung · senkrecht = Übertreibung · diagonal = Entwicklungsrichtung (von der Übertreibung zum positiven Gegenwert).</div>`;
+  const id=o.id, live=()=>state.valuesq.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.valuesq=state.valuesq.filter(x=>x.id!==id); render(); broadcast(); });
+  $$('textarea',el).forEach(t=>t.addEventListener('input',()=>{ const o=live(); if(!o)return; o[t.dataset.k]=t.value; broadcast(); }));
+  return el;
+}
+function updateVqEl(o){
+  const el=$(`#valuesqList .tool[data-id="${o.id}"]`); if(!el)return;
+  $$('textarea',el).forEach(t=>setIfIdle(t, o[t.dataset.k]||''));
+}
+
+/* ==========================================================================
    7. PDF-Export – über die Druckfunktion des Browsers ("Als PDF speichern").
    Bewusst ohne externe Bibliothek: robust, offline, keine Abhängigkeiten.
    ========================================================================== */
@@ -1766,6 +1934,10 @@ $('#btnAddScaleWill').addEventListener('click', () => addScale('will'));
 $('#btnAddBiq').addEventListener('click', () => addBiq('reality'));
 $('#btnAddBiqGoal').addEventListener('click', () => addBiq('goal'));
 $('#btnAddTeam').addEventListener('click', () => addTeam('reality'));
+$('#btnAddSmart').addEventListener('click', () => addSmart('goal'));
+$('#btnAddWellform').addEventListener('click', () => addWellform('goal'));
+$('#btnAddSwot').addEventListener('click', () => addSwot('reality'));
+$('#btnAddValuesq').addEventListener('click', () => addValuesq('reality'));
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
