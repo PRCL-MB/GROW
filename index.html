@@ -289,13 +289,14 @@
   .it-situation:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
   .it-fig{ position:absolute; transform:translate(-50%,-100%); display:flex; flex-direction:column; align-items:center; }
   /* flacher Kontaktschatten, der die Figur auf dem Parkett verankert (liegt hinter der Figur) */
-  .it-fig-ground{ position:absolute; left:50%; bottom:0; width:96%; aspect-ratio:4 / 1; transform:translate(-50%,45%);
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.42), rgba(0,0,0,0) 68%); pointer-events:none; }
+  .it-fig-ground{ position:absolute; left:50%; bottom:0; width:62%; aspect-ratio:3 / 1; transform:translate(-50%,40%);
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.45), rgba(0,0,0,0) 66%); pointer-events:none; }
   .it-fig-title{ border:none; background:color-mix(in srgb,var(--surface) 88%, transparent); color:var(--ink);
     font-size:.66rem; font-weight:600; text-align:center; border-radius:5px; padding:1px 5px; max-width:120px; margin-bottom:1px; }
   .it-fig-title:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
   .it-fig-body{ display:block; cursor:grab; width:100%; }
-  .it-fig-body svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 1px 1px rgba(0,0,0,.22)); }
+  /* aspect-ratio streckt die Figur in ein deutlich höheres Feld -> sie steht aufrecht statt zu "liegen" */
+  .it-fig-body svg{ display:block; width:100%; height:auto; aspect-ratio:60 / 150; filter:drop-shadow(0 1px 1px rgba(0,0,0,.22)); }
   .it-fig.dragging .it-fig-body{ cursor:grabbing; }
   .it-fig-props{ position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px;
     display:none; flex-direction:column; gap:2px; width:132px; background:var(--surface); border:1px solid var(--line);
@@ -321,7 +322,7 @@
     padding:3px 12px; border-radius:6px; border-bottom:2px solid #c0392b; box-shadow:0 2px 6px rgba(0,0,0,.25); white-space:nowrap; }
   .it-pov-fig{ position:absolute; transform:translate(-50%,-100%); display:flex; flex-direction:column; align-items:center; pointer-events:none; }
   .it-pov-fig .t{ font-size:.66rem; font-weight:600; background:rgba(255,255,255,.85); border-radius:5px; padding:1px 5px; color:#222; white-space:nowrap; }
-  .it-pov-fig svg{ display:block; filter:drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+  .it-pov-fig svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
   .it-pov-fig .p{ margin-top:3px; background:rgba(255,255,255,.92); border-radius:6px; padding:3px 6px; font-size:.6rem; color:#333; max-width:150px; line-height:1.4; }
   .it-pov-exit{ position:absolute; top:8px; right:8px; z-index:9; }
   .it-pov-hint{ position:absolute; bottom:7px; left:0; right:0; text-align:center; font-size:.68rem; color:rgba(255,255,255,.92); pointer-events:none; }
@@ -1240,7 +1241,7 @@ function updateActionEl(a){
 const IT_TITLES = ['Der Antreiber','Der Kritiker','Der Ängstliche','Der Mutige',
   'Der Zweifler','Der Beschützer','Der Perfektionist','Der Gelassene',
   'Der Pflichtbewusste','Der Genießer','Der Neugierige','Der Skeptiker'];
-const IT_BASE_W = 13;                     // Grundbreite einer Figur in % der Bühne
+const IT_BASE_W = 12;                     // Grundbreite einer Figur in % der Bühne (Höhe folgt schlank/hoch)
 // Parkett-Farbtöne (im Planungsboden UND im POV-Boden, gleiche Struktur = bessere Orientierung)
 const IT_WOOD_A = '#d9b57e', IT_WOOD_B = '#bd8b4a', IT_SEAM = '#7a5326';
 // Projektion der Brettfläche (Trapez, nur leicht nach hinten schmaler = flacher/gerader) in Bühnen-%
@@ -1385,7 +1386,7 @@ function figureSVG(kind, style){
   const deco = style==='stone' ? stoneTexture(set) : woodGrain(set);
   // viewBox knapp über der Fußlinie (~96) abgeschnitten, damit die Figur ohne Leerraum
   // direkt auf dem Bodenpunkt aufsetzt (kein Schweben). Grounding via .it-fig-ground.
-  return `<svg viewBox="0 0 60 96.5" xmlns="http://www.w3.org/2000/svg">`+
+  return `<svg viewBox="0 0 60 96.5" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`+
     `<defs>${grad}<clipPath id="${c}">${geo}</clipPath></defs>`+
     `<g fill="url(#${g})" stroke="${set.d}" stroke-width="0.6" stroke-opacity=".4">${geo}</g>`+
     `<g clip-path="url(#${c})">`+
