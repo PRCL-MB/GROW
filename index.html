@@ -288,11 +288,14 @@
     color:#c0392b; font-weight:600; font-size:.82rem; border-radius:6px; padding:2px 10px; max-width:82%; border-top:2px solid #c0392b; }
   .it-situation:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
   .it-fig{ position:absolute; transform:translate(-50%,-100%); display:flex; flex-direction:column; align-items:center; }
+  /* flacher Kontaktschatten, der die Figur auf dem Parkett verankert (liegt hinter der Figur) */
+  .it-fig-ground{ position:absolute; left:50%; bottom:0; width:96%; aspect-ratio:4 / 1; transform:translate(-50%,45%);
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.42), rgba(0,0,0,0) 68%); pointer-events:none; }
   .it-fig-title{ border:none; background:color-mix(in srgb,var(--surface) 88%, transparent); color:var(--ink);
     font-size:.66rem; font-weight:600; text-align:center; border-radius:5px; padding:1px 5px; max-width:120px; margin-bottom:1px; }
   .it-fig-title:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
   .it-fig-body{ display:block; cursor:grab; width:100%; }
-  .it-fig-body svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 3px 3px rgba(0,0,0,.28)); }
+  .it-fig-body svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 1px 1px rgba(0,0,0,.22)); }
   .it-fig.dragging .it-fig-body{ cursor:grabbing; }
   .it-fig-props{ position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px;
     display:none; flex-direction:column; gap:2px; width:132px; background:var(--surface); border:1px solid var(--line);
@@ -318,7 +321,7 @@
     padding:3px 12px; border-radius:6px; border-bottom:2px solid #c0392b; box-shadow:0 2px 6px rgba(0,0,0,.25); white-space:nowrap; }
   .it-pov-fig{ position:absolute; transform:translate(-50%,-100%); display:flex; flex-direction:column; align-items:center; pointer-events:none; }
   .it-pov-fig .t{ font-size:.66rem; font-weight:600; background:rgba(255,255,255,.85); border-radius:5px; padding:1px 5px; color:#222; white-space:nowrap; }
-  .it-pov-fig svg{ display:block; filter:drop-shadow(0 3px 3px rgba(0,0,0,.3)); }
+  .it-pov-fig svg{ display:block; filter:drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
   .it-pov-fig .p{ margin-top:3px; background:rgba(255,255,255,.92); border-radius:6px; padding:3px 6px; font-size:.6rem; color:#333; max-width:150px; line-height:1.4; }
   .it-pov-exit{ position:absolute; top:8px; right:8px; z-index:9; }
   .it-pov-hint{ position:absolute; bottom:7px; left:0; right:0; text-align:center; font-size:.68rem; color:rgba(255,255,255,.92); pointer-events:none; }
@@ -1278,22 +1281,15 @@ function itFloorSVG(){
     `<line x1="${fl.sx}" y1="${fl.sy}" x2="${fr.sx}" y2="${fr.sy}" stroke="#c0392b" stroke-width="1" opacity=".85"/></svg>`;
 }
 
-// Derselbe Parkettboden aus der POV-Perspektive (dreht mit dem Blick = Orientierungshilfe).
-// Projiziert jede Bodentafel über Peilung (rel) + Distanz auf den Schirm; nur Tafeln im Blickfeld.
-function itPovFloorSVG(v, yaw, FOV){
-  const N=6;
-  const pt=(bx,by)=>{
-    const dx=bx-v.x, dy=by-v.y;
-    const th=Math.atan2(dx,-dy);
-    const rel=Math.atan2(Math.sin(th-yaw), Math.cos(th-yaw));
-    const d=Math.hypot(dx,dy), tt=Math.max(0,Math.min(1,d/120));
-    return { sx:50+(rel/FOV)*46, sy:40+(1-tt)*52, rel };
-  };
-  let tiles='';
+// Derselbe Parkettboden aus der POV-Perspektive – ECHTE Lochkamera-Projektion
+// (proj-Funktion aus renderPov), damit gerade Bodenkanten gerade bleiben (keine
+// Wölbung/Fisheye). Tafeln, deren Ecke hinter der Kamera liegt (proj=null), entfallen.
+function itPovFloorSVG(proj){
+  const N=6; let tiles='';
   for(let i=0;i<N;i++) for(let j=0;j<N;j++){
     const by0=i*100/N, by1=(i+1)*100/N, bx0=j*100/N, bx1=(j+1)*100/N;
-    const c=[pt(bx0,by0),pt(bx1,by0),pt(bx1,by1),pt(bx0,by1)];
-    if(c.some(p=>Math.abs(p.rel)>1.5)) continue;   // hinter dem Rücken / zu weit seitlich -> weglassen
+    const c=[proj(bx0,by0),proj(bx1,by0),proj(bx1,by1),proj(bx0,by1)];
+    if(c.some(p=>!p)) continue;
     const base=((i+j)%2) ? IT_WOOD_B : IT_WOOD_A;
     tiles += `<polygon points="${c.map(p=>p.sx.toFixed(1)+','+p.sy.toFixed(1)).join(' ')}" fill="${base}" stroke="${IT_SEAM}" stroke-width=".4" stroke-opacity=".45"/>`;
   }
@@ -1387,9 +1383,10 @@ function figureSVG(kind, style){
     ? `<linearGradient id="${g}" x1="0.1" y1="0" x2="0.2" y2="1"><stop offset="0" stop-color="${set.l}"/><stop offset=".5" stop-color="${set.m}"/><stop offset="1" stop-color="${set.d}"/></linearGradient>`
     : `<linearGradient id="${g}" x1="0" y1="0.1" x2="1" y2="0.25"><stop offset="0" stop-color="${set.l}"/><stop offset=".45" stop-color="${set.m}"/><stop offset="1" stop-color="${set.d}"/></linearGradient>`;
   const deco = style==='stone' ? stoneTexture(set) : woodGrain(set);
-  return `<svg viewBox="0 0 60 100" xmlns="http://www.w3.org/2000/svg">`+
+  // viewBox knapp über der Fußlinie (~96) abgeschnitten, damit die Figur ohne Leerraum
+  // direkt auf dem Bodenpunkt aufsetzt (kein Schweben). Grounding via .it-fig-ground.
+  return `<svg viewBox="0 0 60 96.5" xmlns="http://www.w3.org/2000/svg">`+
     `<defs>${grad}<clipPath id="${c}">${geo}</clipPath></defs>`+
-    `<ellipse cx="30" cy="97.5" rx="17" ry="3.2" fill="#241c12" opacity=".3"/>`+
     `<g fill="url(#${g})" stroke="${set.d}" stroke-width="0.6" stroke-opacity=".4">${geo}</g>`+
     `<g clip-path="url(#${c})">`+
       deco+
@@ -1552,6 +1549,7 @@ function buildFigureEl(team, fig){
   const el = document.createElement('div');
   el.className = 'it-fig'; el.dataset.id = fig.id;
   el.innerHTML =
+    `<div class="it-fig-ground"></div>`+
     `<input class="it-fig-title" value="${escapeHtml(fig.title||'')}" placeholder="Titel">`+
     `<div class="it-fig-body">${figureSVG(fig.kind, team.style)}</div>`+
     `<div class="it-fig-props">`+
@@ -1671,38 +1669,47 @@ function renderPov(team, overlay){
   const v = team.figures.find(f => f.id === pv.figId);
   if(!v){ delete povLocal[team.id]; overlay.hidden = true; overlay.innerHTML = ''; return; }
   overlay.hidden = false;
-  const FOV = 1.2, yaw = pv.yaw || 0;              // etwas breiterer Blickwinkel
-  // Peilung (relativer Blickwinkel) + Distanz eines Brett-Punktes zur Betrachterfigur
-  const bearing = (x,y) => {
-    const dx = x - v.x, dy = y - v.y;
-    const theta = Math.atan2(dx, -dy);                 // 0 = geradeaus (zur hinteren Kante)
-    return { rel: Math.atan2(Math.sin(theta-yaw), Math.cos(theta-yaw)), d: Math.hypot(dx, dy) };
+  const yaw = pv.yaw || 0;
+  // ---- Lochkamera-Projektion: Brettpunkt (wx,wy) -> Bildschirm-% ------------
+  // Gerade bleibt gerade (kein Fisheye). Blickrichtung yaw: 0 = zur hinteren Kante.
+  const FOV = 2.0;                                   // breiter horizontaler Öffnungswinkel (~115°)
+  const focal = 1/Math.tan(FOV/2);
+  const EYE = 13, NEAR = 2, HORIZON = 38, SX = 46, SY = 46;   // Augenhöhe/Clip/Bildparameter (Brett-Einheiten bzw. %)
+  const fwd = [Math.sin(yaw), -Math.cos(yaw)];        // Blickrichtung in der Brettebene
+  const rgt = [Math.cos(yaw),  Math.sin(yaw)];        // "rechts" der Kamera
+  const proj = (wx,wy) => {
+    const rx = wx - v.x, ry = wy - v.y;
+    const cf = rx*fwd[0] + ry*fwd[1];                 // Tiefe vor der Kamera
+    if(cf < NEAR) return null;                        // hinter/zu nah an der Kamera
+    const cr = rx*rgt[0] + ry*rgt[1];                 // seitlicher Versatz
+    return { sx: 50 + SX*focal*(cr/cf), sy: HORIZON + SY*focal*(EYE/cf), cf };
   };
+  const floorSvg = itPovFloorSVG(proj);
+  // ---- Figuren -------------------------------------------------------------
+  const Hf = 16;                                      // Welt-Höhe einer Figur (Brett-Einheiten)
   const pos = [];
   const figHtml = team.figures.filter(f => f.id !== v.id).map(f => {
-    const b = bearing(f.x, f.y);
-    if(Math.abs(b.rel) > FOV) return '';
-    const tt = Math.max(0, Math.min(1, b.d/120));
-    const xPct = 50 + (b.rel/FOV)*46;
-    const feetY = 40 + (1-tt)*52;
-    const scl = (1.4*(1-tt) + 0.45*tt) * (f.size||1);
-    const centered = Math.abs(b.rel) < 0.17;           // Eigenschaften nur im Blickzentrum
+    const p = proj(f.x, f.y);
+    if(!p || p.sx < -40 || p.sx > 140) return '';
+    const hPct = SY*focal*(Hf*(f.size||1))/p.cf;      // Bildhöhe der Figur (Perspektive)
+    const wPct = hPct*60/96.5;                         // Breite aus dem Seitenverhältnis
+    const centered = Math.abs(p.sx-50) < 7;            // Eigenschaften nur im Blickzentrum
     const props = (f.props||[]).filter(x => x && x.trim());
-    pos.push({ fid:f.id, xPct });
-    return `<div class="it-pov-fig" style="left:${xPct}%;top:${feetY}%;width:${17*scl}%;z-index:${Math.round(1000-b.d*6)}">`+
+    pos.push({ fid:f.id, xPct:p.sx });
+    return `<div class="it-pov-fig" style="left:${p.sx}%;top:${p.sy}%;width:${wPct}%;z-index:${Math.round(4000-p.cf*20)}">`+
+      `<div class="it-fig-ground"></div>`+
       `<div class="t">${escapeHtml(f.title||'')}</div>${figureSVG(f.kind, team.style)}`+
       (centered && props.length ? `<div class="p">${props.map(escapeHtml).join('<br>')}</div>` : '')+
     `</div>`;
   }).join('');
   overlay._figPos = pos;
-  // Situation bleibt fest an ihrem Ort (vordere Kante, Mitte) und schwebt hoch oben,
-  // damit sie Figuren und deren Beschriftungen nicht in die Quere kommt.
-  const sb = bearing(50, 100);
-  const sitHtml = Math.abs(sb.rel) <= FOV
-    ? `<div class="it-pov-sitw" style="left:${50 + (sb.rel/FOV)*46}%"><span class="it-pov-sit">${escapeHtml(team.situation||'')}</span></div>`
+  // Situation bleibt ortsfest (vordere Kante, Mitte) und schwebt hoch oben.
+  const ps = proj(50, 100);
+  const sitHtml = ps
+    ? `<div class="it-pov-sitw" style="left:${Math.max(6,Math.min(94,ps.sx))}%"><span class="it-pov-sit">${escapeHtml(team.situation||'')}</span></div>`
     : '';
   overlay.innerHTML =
-    itPovFloorSVG(v, yaw, FOV) + sitHtml + figHtml +
+    floorSvg + sitHtml + figHtml +
     `<div class="it-pov-hint">Ziehen = umschauen · Figur antippen = Perspektive wechseln</div>`+
     `<button class="btn small it-pov-exit js-pov-exit">Ansicht verlassen</button>`;
 }
