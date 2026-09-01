@@ -367,6 +367,55 @@
     .vq-arrow{ display:none; }
   }
 
+  /* Zeitstrahl (Goal) */
+  .tl-track{ position:relative; height:96px; margin:14px 4px 6px; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .tl-track *{ touch-action:none; }
+  .tl-line{ position:absolute; top:50%; left:2%; right:2%; height:4px; transform:translateY(-50%); background:var(--line); border-radius:999px; }
+  .tl-line::before, .tl-line::after{ content:""; position:absolute; top:50%; width:9px; height:9px; border-radius:50%; background:var(--accent); transform:translateY(-50%); }
+  .tl-line::before{ left:-2px; } .tl-line::after{ right:-2px; }
+  .tl-pt{ position:absolute; top:50%; }   /* 0-Größen-Anker bei (pos%, Mitte); left inline gesetzt */
+  .tl-dot{ position:absolute; left:0; top:0; width:18px; height:18px; border-radius:50%; background:var(--accent-2); border:3px solid var(--surface); box-shadow:var(--shadow); transform:translate(-50%,-50%); cursor:grab; }
+  .tl-dot:active{ cursor:grabbing; }
+  .tl-flag{ position:absolute; left:0; bottom:14px; transform:translateX(-50%); width:104px;
+    border:none; background:color-mix(in srgb,var(--surface) 90%, transparent); border-radius:6px; text-align:center;
+    font-size:.72rem; color:var(--ink); padding:2px 4px; }
+  .tl-date{ position:absolute; left:0; top:14px; transform:translateX(-50%); width:96px;
+    border:none; background:none; text-align:center; font-size:.68rem; color:var(--ink-soft); padding:1px; }
+  .tl-flag:focus, .tl-date:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
+  .tl-pdel{ position:absolute; left:0; bottom:32px; transform:translateX(-50%); border:none; background:none; color:var(--ink-soft); font-size:.85rem; cursor:pointer; line-height:1; padding:0 4px; }
+  .tl-ends{ display:flex; justify-content:space-between; margin:0 2px; }
+  .tl-end{ border:none; background:none; font-size:.8rem; font-weight:600; color:var(--accent); padding:2px; width:44%; }
+  .tl-end.tl-end-r{ text-align:right; }
+  .tl-end:focus{ outline:none; }
+
+  /* Lebensrad (Reality) */
+  .wheel-wrap{ display:flex; flex-direction:column; align-items:center; }
+  .wheel-stage{ position:relative; width:100%; max-width:420px; aspect-ratio:1/1; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .wheel-stage svg{ position:absolute; inset:0; width:100%; height:100%; }
+  .wheel-lab{ position:absolute; transform:translate(-50%,-50%); width:84px; border:none; background:color-mix(in srgb,var(--surface) 80%, transparent);
+    text-align:center; font-size:.64rem; color:var(--ink); border-radius:5px; padding:1px 2px; }
+  .wheel-lab:focus{ outline:none; box-shadow:0 0 0 2px var(--focus); }
+  .wheel-seg-ctrl{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+
+  /* Beziehungskarte (Reality) */
+  .rel-toolbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+  .rel-stage{ position:relative; width:100%; aspect-ratio:3/2; border:1px solid var(--line); border-radius:12px;
+    background:var(--bg); overflow:hidden; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .rel-links{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .rel-node{ position:absolute; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center;
+    min-width:60px; max-width:120px; padding:7px 10px; background:var(--surface); border:1.5px solid var(--accent);
+    border-radius:999px; box-shadow:var(--shadow); cursor:grab; }
+  .rel-node.dragging{ cursor:grabbing; }
+  .rel-node.sel{ border-color:var(--accent-2); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent-2) 35%, transparent); }
+  .rel-node input{ border:none; background:none; text-align:center; font:inherit; font-size:.78rem; color:var(--ink); width:100%; min-width:40px; }
+  .rel-node input:focus{ outline:none; }
+  .rel-node .rel-ndel{ position:absolute; top:-8px; right:-8px; width:16px; height:16px; border-radius:50%; background:#c0392b; color:#fff; border:2px solid var(--surface); font-size:.62rem; line-height:1; cursor:pointer; display:none; padding:0; }
+  .rel-node:hover .rel-ndel, .rel-node.sel .rel-ndel{ display:flex; align-items:center; justify-content:center; }
+  .rel-ldel{ position:absolute; transform:translate(-50%,-50%); width:16px; height:16px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--line); color:var(--ink-soft); font-size:.62rem; line-height:1; cursor:pointer; padding:0; }
+  .rel-hint{ font-size:.72rem; color:var(--ink-soft); margin-top:8px; }
+  .btn.small[aria-pressed="true"].js-rel-connect{ background:var(--accent-2); border-color:var(--accent-2); color:#fff; }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -394,7 +443,8 @@
   /* ---------- 7. Druck-/PDF-Layout ---------- */
   @media print{
     header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .overlay, .item-del, .item-take, .export-row,
-    .it-toolbar, .it-tray, .it-del, .it-grip, .it-pov, .it-empty{ display:none !important; }
+    .it-toolbar, .it-tray, .it-del, .it-grip, .it-pov, .it-empty,
+    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl{ display:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -408,7 +458,8 @@
     .it-fig-props{ display:flex !important; }
     /* Farbige Ergebnis-Elemente wirklich drucken (Browser lassen Hintergrundfarben sonst weg) */
     .biq-dot, .biq-square, .marker, .marker .val, .scale .track, .stars .star,
-    .it-stage, .it-floor, .it-fig-body svg, .it-situation, .it-redline, .smart-badge{
+    .it-stage, .it-floor, .it-fig-body svg, .it-situation, .it-redline, .smart-badge,
+    .tl-line, .tl-dot, .wheel-stage svg, .rel-stage, .rel-node, .rel-links{
       -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
   .print-goal{ display:none; }
@@ -476,11 +527,13 @@
     <div id="biqListGoal"></div>
     <div id="smartList"></div>
     <div id="wellformList"></div>
+    <div id="timelineList"></div>
     <div class="add-tool-row coach-only" style="text-align:center">
       <button class="btn ghost small" id="btnAddScaleGoal">+ Skala</button>
       <button class="btn ghost small" id="btnAddBiqGoal" title="Beobachtung im Quadrat">+ BiQ</button>
       <button class="btn ghost small" id="btnAddSmart" title="Zielkreuz (SMART)">+ Zielkreuz</button>
       <button class="btn ghost small" id="btnAddWellform" title="Wohlgeformtes Ziel">+ Wohlgeformt</button>
+      <button class="btn ghost small" id="btnAddTimeline" title="Zeitstrahl mit Meilensteinen">+ Zeitstrahl</button>
     </div>
   </section>
 
@@ -495,12 +548,16 @@
     <div id="biqList"></div>
     <div id="swotList"></div>
     <div id="valuesqList"></div>
+    <div id="wheelList"></div>
+    <div id="relmapList"></div>
     <div id="teamList"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScale">+ Skala</button>
       <button class="btn ghost small" id="btnAddBiq" title="Beobachtung im Quadrat">+ BiQ</button>
       <button class="btn ghost small" id="btnAddSwot" title="SWOT / Ressourcen & Hürden">+ SWOT</button>
       <button class="btn ghost small" id="btnAddValuesq" title="Wertequadrat (Schulz von Thun)">+ Wertequadrat</button>
+      <button class="btn ghost small" id="btnAddWheel" title="Lebensrad (Wheel of Life)">+ Lebensrad</button>
+      <button class="btn ghost small" id="btnAddRelmap" title="Beziehungs-/Stakeholder-Karte">+ Beziehungskarte</button>
       <button class="btn ghost small" id="btnAddTeam" title="Inneres Team – Aufstellung">+ Inneres Team</button>
     </div>
   </section>
@@ -576,6 +633,9 @@ const state = {
   wellform: [],            // Wohlgeformtheits-Check (Goal): [{id,phase,answers:[5]}]
   swot: [],                // SWOT / Ressourcen & Hürden (Reality): [{id,phase,heads:[4],cells:[4]}]
   valuesq: [],             // Wertequadrat (Reality): [{id,phase,v1,v2,e1,e2}]
+  timelines: [],           // Zeitstrahl (Goal): [{id,phase,startLabel,endLabel,points:[{id,pos,label,date}]}]
+  wheels: [],              // Lebensrad (Reality): [{id,phase,labels:[N],values:[N]}]
+  relmaps: [],             // Beziehungskarte (Reality): [{id,phase,nodes:[{id,x,y,label}],links:[{id,a,b,kind}]}]
   opt2axis: false,         // Zwei-Achsen-Bewertung der Optionen (vom Coach schaltbar)
   optAxisA: '',            // Beschriftung Achse A (Sterne links)
   optAxisB: ''             // Beschriftung Achse B (Sterne rechts)
@@ -822,6 +882,9 @@ function render(opts={}){
   renderWellform(opts);
   renderSwot(opts);
   renderValuesq(opts);
+  renderTimelines(opts);
+  renderWheels(opts);
+  renderRelmaps(opts);
 }
 
 /* ==========================================================================
@@ -1892,6 +1955,222 @@ function updateVqEl(o){
 }
 
 /* ==========================================================================
+   6f. Interaktive Tools (Batch 2): Zeitstrahl (Goal), Lebensrad + Beziehungs-
+   karte (Reality). Muster wie gehabt: addX coach-only fürs Tool; Inhalte in
+   BEIDEN Rollen; Handler holen ihr Objekt frisch per ID (live()); Ziehen mit
+   throttledBroadcast + Echo-Guard; synchron + im PDF.
+   ========================================================================== */
+
+// ---- Zeitstrahl (Goal) ----------------------------------------------------
+let draggingTL = null;   // {tlId, pid} Echo-Schutz
+function addTimeline(phase){ state.timelines.push({ id:'tl'+Date.now(), phase, startLabel:'heute', endLabel:'Ziel', points:[] }); render(); broadcast(); }
+function addTlPoint(tlId){ const t=state.timelines.find(x=>x.id===tlId); if(!t) return;
+  t.points.push({ id:'tp'+Date.now(), pos:50, label:'', date:'' }); render(); broadcast(); }
+function renderTimelines(opts={}){ listRebuild($('#timelineList'), state.timelines.filter(x=>(x.phase||'goal')==='goal'), buildTlEl, updateTlEl); }
+function buildTlEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">Zeitstrahl</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    `<div class="tl-ends"><input class="tl-end tl-start" placeholder="Start"><input class="tl-end tl-end-r tl-endl" placeholder="Ende"></div>`+
+    `<div class="tl-track"><div class="tl-line"></div></div>`+
+    `<div class="add-tool-row" style="text-align:center;margin-top:4px"><button class="btn ghost small js-add-tp">+ Meilenstein</button></div>`;
+  const id=o.id, live=()=>state.timelines.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.timelines=state.timelines.filter(x=>x.id!==id); render(); broadcast(); });
+  $('.js-add-tp',el).addEventListener('click',()=>addTlPoint(id));
+  $('.tl-start',el).addEventListener('input',e=>{ const o=live(); if(!o)return; o.startLabel=e.target.value; broadcast(); });
+  $('.tl-endl',el).addEventListener('input',e=>{ const o=live(); if(!o)return; o.endLabel=e.target.value; broadcast(); });
+  return el;
+}
+function buildTlPoint(tlId, p){
+  const wrap=document.createElement('div'); wrap.className='tl-pt'; wrap.dataset.id=p.id;
+  wrap.innerHTML = `<button class="tl-pdel" title="Meilenstein entfernen">✕</button>`+
+    `<input class="tl-flag" placeholder="Meilenstein">`+
+    `<div class="tl-dot"></div>`+
+    `<input class="tl-date" placeholder="bis wann?">`;
+  const pid=p.id, live=()=>{ const t=state.timelines.find(x=>x.id===tlId); return t&&t.points.find(q=>q.id===pid); };
+  $('.tl-flag',wrap).addEventListener('input',e=>{ const q=live(); if(!q)return; q.label=e.target.value; broadcast(); });
+  $('.tl-date',wrap).addEventListener('input',e=>{ const q=live(); if(!q)return; q.date=e.target.value; broadcast(); });
+  $('.tl-pdel',wrap).addEventListener('click',()=>{ const t=state.timelines.find(x=>x.id===tlId); if(!t)return; t.points=t.points.filter(q=>q.id!==pid); render(); broadcast(); });
+  const dot=$('.tl-dot',wrap);
+  dot.addEventListener('pointerdown',e=>{ const q=live(); if(!q)return; e.preventDefault();
+    draggingTL={tlId,pid}; try{dot.setPointerCapture(e.pointerId);}catch(_){}
+  });
+  dot.addEventListener('pointermove',e=>{ if(!draggingTL||draggingTL.pid!==pid)return; const q=live(); if(!q)return;
+    const track=wrap.closest('.tl-track'), r=track.getBoundingClientRect();
+    q.pos=Math.max(2,Math.min(98,Math.round((e.clientX-r.left)/r.width*100)));
+    wrap.style.left=q.pos+'%'; throttledBroadcast();
+  });
+  const end=()=>{ if(draggingTL&&draggingTL.pid===pid){ draggingTL=null; broadcast(); } };
+  dot.addEventListener('pointerup',end); dot.addEventListener('pointercancel',end);
+  return wrap;
+}
+function updateTlEl(o){
+  const el=$(`#timelineList .tool[data-id="${o.id}"]`); if(!el)return;
+  setIfIdle($('.tl-start',el), o.startLabel||''); setIfIdle($('.tl-endl',el), o.endLabel||'');
+  const track=$('.tl-track',el);
+  const existing=$$('.tl-pt',track).map(p=>p.dataset.id), wanted=o.points.map(p=>p.id);
+  if(existing.join(',')!==wanted.join(',')){
+    $$('.tl-pt',track).forEach(p=>p.remove());
+    o.points.forEach(p=>track.appendChild(buildTlPoint(o.id,p)));
+  }
+  o.points.forEach(p=>{
+    const w=$(`.tl-pt[data-id="${p.id}"]`,track); if(!w)return;
+    if(!(draggingTL&&draggingTL.pid===p.id)) w.style.left=(p.pos??50)+'%';
+    setIfIdle($('.tl-flag',w), p.label||''); setIfIdle($('.tl-date',w), p.date||'');
+  });
+}
+
+// ---- Lebensrad / Wheel of Life (Reality) ---------------------------------
+let draggingWheel = null;   // id
+const WHEEL_LABELS = ['Arbeit/Beruf','Finanzen','Gesundheit','Familie','Partnerschaft','Freunde','Freizeit','Entwicklung'];
+function addWheel(phase){ state.wheels.push({ id:'wh'+Date.now(), phase, labels:WHEEL_LABELS.slice(), values:WHEEL_LABELS.map(()=>5) }); render(); broadcast(); }
+function renderWheels(opts={}){ listRebuild($('#wheelList'), state.wheels.filter(x=>(x.phase||'reality')==='reality'), buildWheelEl, updateWheelEl); }
+function buildWheelEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">Lebensrad</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    `<div class="wheel-seg-ctrl coach-only"><span class="hint">Segmente:</span>`+
+      `<button class="btn ghost small js-seg-minus">–</button><button class="btn ghost small js-seg-plus">+</button>`+
+      `<span class="hint">Ins Rad tippen/ziehen = bewerten (0–10).</span></div>`+
+    `<div class="wheel-wrap"><div class="wheel-stage"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg></div></div>`;
+  const id=o.id, live=()=>state.wheels.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.wheels=state.wheels.filter(x=>x.id!==id); render(); broadcast(); });
+  $('.js-seg-minus',el).addEventListener('click',()=>{ const o=live(); if(!o||o.labels.length<=3)return; o.labels.pop(); o.values.pop(); render(); broadcast(); });
+  $('.js-seg-plus',el).addEventListener('click',()=>{ const o=live(); if(!o||o.labels.length>=12)return; o.labels.push('Neu'); o.values.push(5); render(); broadcast(); });
+  const stage=$('.wheel-stage',el);
+  const setFromEvent=e=>{ const o=live(); if(!o)return; const r=stage.getBoundingClientRect();
+    const vx=(e.clientX-r.left)/r.width*100, vy=(e.clientY-r.top)/r.height*100, dx=vx-50, dy=vy-50;
+    const N=o.labels.length, step=360/N;
+    let a=Math.atan2(dx,-dy)*180/Math.PI; a=(a%360+360)%360;   // 0 = oben, im Uhrzeigersinn
+    const seg=Math.floor(a/step)%N;
+    const rad=Math.hypot(dx,dy), val=Math.max(0,Math.min(10,Math.round(rad/34*10)));
+    o.values[seg]=val; drawWheel(o); throttledBroadcast();
+  };
+  stage.addEventListener('pointerdown',e=>{ e.preventDefault(); draggingWheel=id; try{stage.setPointerCapture(e.pointerId);}catch(_){}; setFromEvent(e); });
+  stage.addEventListener('pointermove',e=>{ if(draggingWheel!==id)return; setFromEvent(e); });
+  const end=()=>{ if(draggingWheel===id){ draggingWheel=null; broadcast(); } };
+  stage.addEventListener('pointerup',end); stage.addEventListener('pointercancel',end);
+  return el;
+}
+function drawWheel(o){
+  const el=$(`#wheelList .tool[data-id="${o.id}"]`); if(!el)return;
+  const stage=$('.wheel-stage',el), svg=$('svg',stage);
+  const N=o.labels.length, R=34, cx=50, cy=50, step=360/N;
+  const pt=(ang,r)=>[cx+r*Math.sin(ang*Math.PI/180), cy-r*Math.cos(ang*Math.PI/180)];  // ang: 0=oben, im Uhrzeigersinn
+  let g='';
+  for(let k=1;k<=5;k++){ const rr=R*k/5; g+=`<circle cx="${cx}" cy="${cy}" r="${rr}" fill="none" style="stroke:var(--line);stroke-width:.4"/>`; }
+  for(let i=0;i<N;i++){ const [x,y]=pt(i*step,R); g+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" style="stroke:var(--line);stroke-width:.4"/>`; }
+  let poly='', dots='';
+  for(let i=0;i<N;i++){ const [x,y]=pt((i+0.5)*step, R*(o.values[i]||0)/10); poly+=`${x.toFixed(1)},${y.toFixed(1)} `; dots+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.6" style="fill:var(--accent)"/>`; }
+  svg.innerHTML = g +
+    `<polygon points="${poly.trim()}" style="fill:color-mix(in srgb, var(--accent) 26%, transparent);stroke:var(--accent);stroke-width:1"/>`+
+    dots;
+  // Labels als HTML-Inputs um den Kreis
+  $$('.wheel-lab',stage).forEach(n=>n.remove());
+  o.labels.forEach((lab,i)=>{ const [x,y]=pt((i+0.5)*step, 45);
+    const inp=document.createElement('input'); inp.className='wheel-lab'; inp.dataset.i=i;
+    inp.style.left=x+'%'; inp.style.top=y+'%'; inp.value=lab||'';
+    inp.addEventListener('input',()=>{ const o2=state.wheels.find(w=>w.id===el.dataset.id); if(!o2)return; o2.labels[i]=inp.value; broadcast(); });
+    stage.appendChild(inp);
+  });
+}
+function updateWheelEl(o){
+  const el=$(`#wheelList .tool[data-id="${o.id}"]`); if(!el)return;
+  drawWheel(o);
+}
+
+// ---- Beziehungskarte / Stakeholder-Map (Reality) -------------------------
+let draggingNode = null;   // {mapId,nodeId,moved}
+const relFirst = {};       // mapId -> nodeId (lokaler Verbinden-Zustand)
+const relConnect = {};     // mapId -> bool (Verbinden-Modus aktiv, lokal)
+function addRelmap(phase){ state.relmaps.push({ id:'rm'+Date.now(), phase, nodes:[], links:[] }); render(); broadcast(); }
+function addRelNode(mapId){ const m=state.relmaps.find(x=>x.id===mapId); if(!m)return;
+  m.nodes.push({ id:'rn'+Date.now(), x:30+Math.random()*40, y:30+Math.random()*40, label:'' }); render(); broadcast(); }
+function renderRelmaps(opts={}){ listRebuild($('#relmapList'), state.relmaps.filter(x=>(x.phase||'reality')==='reality'), buildRelmapEl, updateRelmapEl); }
+function buildRelmapEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  el.innerHTML = `<div class="rel-toolbar"><span class="tool-title">Beziehungskarte</span>`+
+    `<button class="btn ghost small js-add-node">+ Person</button>`+
+    `<button class="btn ghost small js-rel-connect" aria-pressed="false">Verbinden</button>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    `<div class="rel-stage"><svg class="rel-links" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg></div>`+
+    `<div class="rel-hint">Knoten ziehen = verschieben · „Verbinden" an, dann zwei Personen antippen · Linie: ✕ löscht.</div>`;
+  const id=o.id, live=()=>state.relmaps.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.relmaps=state.relmaps.filter(x=>x.id!==id); delete relFirst[id]; delete relConnect[id]; render(); broadcast(); });
+  $('.js-add-node',el).addEventListener('click',()=>addRelNode(id));
+  $('.js-rel-connect',el).addEventListener('click',()=>{ relConnect[id]=!relConnect[id]; relFirst[id]=null; updateRelmapEl(live()); });
+  return el;
+}
+function buildRelNode(mapId, n){
+  const el=document.createElement('div'); el.className='rel-node'; el.dataset.id=n.id;
+  el.innerHTML = `<input placeholder="Name/Rolle"><button class="rel-ndel" title="entfernen">✕</button>`;
+  const nid=n.id, lm=()=>state.relmaps.find(x=>x.id===mapId), ln=()=>{ const m=lm(); return m&&m.nodes.find(q=>q.id===nid); };
+  $('input',el).addEventListener('input',e=>{ const q=ln(); if(!q)return; q.label=e.target.value; broadcast(); });
+  $('.rel-ndel',el).addEventListener('click',e=>{ e.stopPropagation(); const m=lm(); if(!m)return;
+    m.nodes=m.nodes.filter(q=>q.id!==nid); m.links=m.links.filter(l=>l.a!==nid&&l.b!==nid); render(); broadcast(); });
+  el.addEventListener('pointerdown',e=>{ if(e.target.closest('input')||e.target.closest('.rel-ndel'))return;
+    const q=ln(); if(!q)return; e.preventDefault();
+    draggingNode={mapId,nodeId:nid,moved:0}; try{el.setPointerCapture(e.pointerId);}catch(_){}; el.classList.add('dragging');
+  });
+  el.addEventListener('pointermove',e=>{ if(!draggingNode||draggingNode.nodeId!==nid)return; const q=ln(); if(!q)return;
+    draggingNode.moved++; const stage=el.closest('.rel-stage'), r=stage.getBoundingClientRect();
+    q.x=Math.max(3,Math.min(97,(e.clientX-r.left)/r.width*100)); q.y=Math.max(6,Math.min(94,(e.clientY-r.top)/r.height*100));
+    el.style.left=q.x+'%'; el.style.top=q.y+'%'; drawRelLinks(lm()); throttledBroadcast();
+  });
+  const up=()=>{ if(!draggingNode||draggingNode.nodeId!==nid)return; el.classList.remove('dragging');
+    const wasClick=draggingNode.moved<4; draggingNode=null;
+    if(wasClick && relConnect[mapId]) relConnectPick(mapId,nid); else broadcast();
+  };
+  el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
+  return el;
+}
+function relConnectPick(mapId, nid){
+  const m=state.relmaps.find(x=>x.id===mapId); if(!m)return;
+  if(!relFirst[mapId]){ relFirst[mapId]=nid; }
+  else if(relFirst[mapId]===nid){ relFirst[mapId]=null; }
+  else {
+    const a=relFirst[mapId], b=nid;
+    if(!m.links.some(l=>(l.a===a&&l.b===b)||(l.a===b&&l.b===a))){ m.links.push({id:'rl'+Date.now(),a,b,kind:'solid'}); }
+    relFirst[mapId]=null; broadcast();
+  }
+  updateRelmapEl(m);
+}
+function drawRelLinks(o){
+  const el=$(`#relmapList .tool[data-id="${o.id}"]`); if(!el)return;
+  const stage=$('.rel-stage',el), svg=$('.rel-links',stage);
+  const posOf=id=>{ const n=o.nodes.find(q=>q.id===id); return n?[n.x,n.y]:null; };
+  let lines='';
+  o.links.forEach(l=>{ const A=posOf(l.a),B=posOf(l.b); if(!A||!B)return;
+    lines+=`<line x1="${A[0]}" y1="${A[1]}" x2="${B[0]}" y2="${B[1]}" style="stroke:var(--accent);stroke-width:0.5" ${l.kind==='dashed'?'stroke-dasharray="2 1.5"':''}/>`; });
+  svg.innerHTML=lines;
+  // Löschknöpfe an den Linien-Mittelpunkten
+  $$('.rel-ldel',stage).forEach(b=>b.remove());
+  o.links.forEach(l=>{ const A=posOf(l.a),B=posOf(l.b); if(!A||!B)return;
+    const bx=(A[0]+B[0])/2, by=(A[1]+B[1])/2;
+    const btn=document.createElement('button'); btn.className='rel-ldel'; btn.textContent='✕';
+    btn.style.left=bx+'%'; btn.style.top=by+'%';
+    btn.addEventListener('click',()=>{ const m=state.relmaps.find(x=>x.id===o.id); if(!m)return; m.links=m.links.filter(x=>x.id!==l.id); render(); broadcast(); });
+    stage.appendChild(btn);
+  });
+}
+function updateRelmapEl(o){
+  const el=$(`#relmapList .tool[data-id="${o.id}"]`); if(!el)return;
+  $('.js-rel-connect',el).setAttribute('aria-pressed', String(!!relConnect[o.id]));
+  const stage=$('.rel-stage',el);
+  const existing=$$('.rel-node',stage).map(n=>n.dataset.id), wanted=o.nodes.map(n=>n.id);
+  if(existing.join(',')!==wanted.join(',')){
+    $$('.rel-node',stage).forEach(n=>n.remove());
+    o.nodes.forEach(n=>stage.appendChild(buildRelNode(o.id,n)));
+  }
+  o.nodes.forEach(n=>{ const el2=$(`.rel-node[data-id="${n.id}"]`,stage); if(!el2)return;
+    if(!(draggingNode&&draggingNode.nodeId===n.id)){ el2.style.left=n.x+'%'; el2.style.top=n.y+'%'; }
+    el2.classList.toggle('sel', relFirst[o.id]===n.id);
+    setIfIdle($('input',el2), n.label||'');
+  });
+  drawRelLinks(o);
+}
+
+/* ==========================================================================
    7. PDF-Export – über die Druckfunktion des Browsers ("Als PDF speichern").
    Bewusst ohne externe Bibliothek: robust, offline, keine Abhängigkeiten.
    ========================================================================== */
@@ -1938,6 +2217,9 @@ $('#btnAddSmart').addEventListener('click', () => addSmart('goal'));
 $('#btnAddWellform').addEventListener('click', () => addWellform('goal'));
 $('#btnAddSwot').addEventListener('click', () => addSwot('reality'));
 $('#btnAddValuesq').addEventListener('click', () => addValuesq('reality'));
+$('#btnAddTimeline').addEventListener('click', () => addTimeline('goal'));
+$('#btnAddWheel').addEventListener('click', () => addWheel('reality'));
+$('#btnAddRelmap').addEventListener('click', () => addRelmap('reality'));
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
