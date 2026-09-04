@@ -431,6 +431,18 @@
   .en-add-row{ margin-top:6px; }
   @media (max-width:580px){ .en-pot{ width:130px; } }
 
+  /* Wunschelemente-Technik (ZRM) */
+  .wish-theme{ width:100%; margin-bottom:10px; }
+  .wish-sub{ font-size:.72rem; color:var(--ink-soft); margin:2px 0 6px; }
+  .wish-head{ font-weight:600; font-size:.9rem; margin-top:4px; }
+  .wish-item.wish-on{ border-color:var(--accent-2); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-2) 22%, transparent); }
+  .wish-heart{ flex:none; cursor:pointer; font-size:1.15rem; line-height:1; color:var(--line); user-select:none; }
+  .wish-heart.on{ color:#c0563f; }
+  .wish-aff{ display:inline-flex; gap:3px; flex:none; }
+  .wish-aff .dot{ width:11px; height:11px; border-radius:50%; border:1.5px solid var(--line); cursor:pointer; }
+  .wish-aff .dot.on{ background:var(--accent-2); border-color:var(--accent-2); }
+  .wish-motto{ margin-top:14px; }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -474,7 +486,8 @@
     /* Farbige Ergebnis-Elemente wirklich drucken (Browser lassen Hintergrundfarben sonst weg) */
     .biq-dot, .biq-square, .marker, .marker .val, .scale .track, .stars .star,
     .it-stage, .it-floor, .it-fig-body svg, .it-situation, .it-redline, .smart-badge,
-    .tl-line, .tl-dot, .wheel-stage svg, .rel-stage, .rel-node, .rel-links, .en-pot svg, .en-liquid{
+    .tl-line, .tl-dot, .wheel-stage svg, .rel-stage, .rel-node, .rel-links, .en-pot svg, .en-liquid,
+    .wish-heart, .wish-aff .dot{
       -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
   .print-goal{ display:none; }
@@ -568,6 +581,7 @@
     <div id="wheelList"></div>
     <div id="relmapList"></div>
     <div id="energyList"></div>
+    <div id="wishList"></div>
     <div id="teamList"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScale">+ Skala</button>
@@ -577,6 +591,7 @@
       <button class="btn ghost small" id="btnAddWheel" title="Lebensrad (Wheel of Life)">+ Lebensrad</button>
       <button class="btn ghost small" id="btnAddRelmap" title="Beziehungs-/Stakeholder-Karte">+ Beziehungskarte</button>
       <button class="btn ghost small" id="btnAddEnergy" title="Energietopf">+ Energietopf</button>
+      <button class="btn ghost small" id="btnAddWish" title="Wunschelemente-Technik (ZRM)">+ Wunschelemente</button>
       <button class="btn ghost small" id="btnAddTeam" title="Inneres Team – Aufstellung">+ Inneres Team</button>
     </div>
   </section>
@@ -599,8 +614,10 @@
     </div>
     <div id="optMatrixWrap" hidden></div>
     <div id="scaleListOptions"></div>
+    <div id="wishListOptions"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScaleOptions">+ Skala</button>
+      <button class="btn ghost small" id="btnAddWishOptions" title="Wunschelemente-Technik (ZRM)">+ Wunschelemente</button>
     </div>
     <label class="field" style="margin-top:24px">
       <span class="lab">Notizen (optional)</span>
@@ -656,6 +673,7 @@ const state = {
   wheels: [],              // Lebensrad (Reality): [{id,phase,labels:[N],values:[N]}]
   relmaps: [],             // Beziehungskarte (Reality): [{id,phase,nodes:[{id,x,y,label}],links:[{id,a,b,kind}]}]
   energy: [],              // Energietopf (Goal & Reality): [{id,phase,level,lists:[[{id,text}]×4]}]
+  wishes: [],              // Wunschelemente/ZRM (Reality & Options): [{id,phase,theme,motto,items:[{id,text,wish,affect}]}]
   opt2axis: false,         // Zwei-Achsen-Bewertung der Optionen (vom Coach schaltbar)
   optAxisA: '',            // Beschriftung Achse A (Sterne links)
   optAxisB: ''             // Beschriftung Achse B (Sterne rechts)
@@ -906,6 +924,7 @@ function render(opts={}){
   renderWheels(opts);
   renderRelmaps(opts);
   renderEnergy(opts);
+  renderWishes(opts);
 }
 
 /* ==========================================================================
@@ -2278,6 +2297,67 @@ function updateEnergyEl(o){
   });
 }
 
+// ---- Wunschelemente-Technik / ZRM (Reality & Options) --------------------
+// Ideenkorb (Assoziationen sammeln) -> Wunschelemente markieren (gutes Gefühl,
+// somatischer Marker 0–3) -> Motto-Ziel formulieren. (Storch/Krause, ZRM)
+function addWish(phase){ state.wishes.push({ id:'wi'+Date.now(), phase, theme:'', motto:'', items:[] }); render(); broadcast(); }
+function addWishItem(wid){ const w=state.wishes.find(x=>x.id===wid); if(!w) return;
+  w.items.push({ id:'wt'+Date.now()+Math.floor(Math.random()*1e4), text:'', wish:false, affect:0 }); render(); broadcast(); }
+function renderWishes(opts={}){
+  renderWishList($('#wishList'),        'reality');
+  renderWishList($('#wishListOptions'), 'options');
+}
+function renderWishList(list, phase){ listRebuild(list, state.wishes.filter(x=>(x.phase||'reality')===phase), buildWishEl, updateWishEl); }
+function buildWishEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">Wunschelemente (ZRM)</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    `<input class="text wish-theme" placeholder="Bild / Thema (optional) – wozu sammelst du Assoziationen?">`+
+    `<div class="wish-head">Ideenkorb</div>`+
+    `<div class="wish-sub">Alles sammeln, was dir einfällt – ungefiltert. ♡ = Wunschelement (löst ein gutes Gefühl aus), Punkte = wie stark es dich anspricht.</div>`+
+    `<div class="wish-items itemlist"></div>`+
+    `<div class="add-tool-row"><button class="btn ghost small js-wish-add">+ Idee</button></div>`+
+    `<div class="wish-motto"><div class="wish-head">Motto-Ziel</div>`+
+    `<div class="wish-sub">Aus den Wunschelementen ein bildhaftes Motto formulieren – annähernd, positiv, zu 100 % in deiner Macht.</div>`+
+    `<textarea class="text wish-motto-in" style="min-height:70px" placeholder="Ich bin wie …"></textarea></div>`;
+  const id=o.id, live=()=>state.wishes.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.wishes=state.wishes.filter(x=>x.id!==id); render(); broadcast(); });
+  $('.wish-theme',el).addEventListener('input',e=>{ const o=live(); if(!o)return; o.theme=e.target.value; broadcast(); });
+  $('.wish-motto-in',el).addEventListener('input',e=>{ const o=live(); if(!o)return; o.motto=e.target.value; broadcast(); });
+  $('.js-wish-add',el).addEventListener('click',()=>addWishItem(id));
+  return el;
+}
+function buildWishItem(wid, it){
+  const el=document.createElement('div'); el.className='item wish-item'; el.dataset.id=it.id;
+  el.innerHTML = `<span class="wish-heart" title="Als Wunschelement markieren">♡</span>`+
+    `<input class="item-text" placeholder="Assoziation / Idee …">`+
+    `<span class="wish-aff" title="Wie stark spricht es dich an?">`+
+      [1,2,3].map(n=>`<span class="dot" data-n="${n}"></span>`).join('')+`</span>`+
+    `<button class="item-del" title="Entfernen">✕</button>`;
+  const iid=it.id, find=()=>{ const w=state.wishes.find(x=>x.id===wid); return w&&w.items.find(q=>q.id===iid); };
+  $('.wish-heart',el).addEventListener('click',()=>{ const q=find(); if(!q)return; q.wish=!q.wish; updateWishItem(wid,q); broadcast(); });
+  $('.item-text',el).addEventListener('input',e=>{ const q=find(); if(!q)return; q.text=e.target.value; broadcast(); });
+  $$('.wish-aff .dot',el).forEach(d=>d.addEventListener('click',()=>{ const q=find(); if(!q)return;
+    const n=+d.dataset.n; q.affect=(q.affect===n)?n-1:n; updateWishItem(wid,q); broadcast(); }));
+  $('.item-del',el).addEventListener('click',()=>{ const w=state.wishes.find(x=>x.id===wid); if(!w)return;
+    w.items=w.items.filter(q=>q.id!==iid); render(); broadcast(); });
+  return el;
+}
+function updateWishItem(wid, it){
+  const box=document.querySelector(`.tool[data-id="${wid}"] .wish-items`); if(!box)return;
+  const el=$(`.item[data-id="${it.id}"]`,box); if(!el)return;
+  setIfIdle($('.item-text',el), it.text||'');
+  const heart=$('.wish-heart',el); heart.textContent=it.wish?'♥':'♡'; heart.classList.toggle('on',!!it.wish);
+  el.classList.toggle('wish-on',!!it.wish);
+  $$('.wish-aff .dot',el).forEach(d=>d.classList.toggle('on', +d.dataset.n <= (it.affect||0)));
+}
+function updateWishEl(o){
+  const el=document.querySelector(`.tool[data-id="${o.id}"]`); if(!el)return;
+  setIfIdle($('.wish-theme',el), o.theme||'');
+  setIfIdle($('.wish-motto-in',el), o.motto||'');
+  syncList($('.wish-items',el), o.items, it=>buildWishItem(o.id,it), it=>updateWishItem(o.id,it));
+}
+
 /* ==========================================================================
    7. PDF-Export – über die Druckfunktion des Browsers ("Als PDF speichern").
    Bewusst ohne externe Bibliothek: robust, offline, keine Abhängigkeiten.
@@ -2330,6 +2410,8 @@ $('#btnAddWheel').addEventListener('click', () => addWheel('reality'));
 $('#btnAddRelmap').addEventListener('click', () => addRelmap('reality'));
 $('#btnAddEnergy').addEventListener('click', () => addEnergy('reality'));
 $('#btnAddEnergyGoal').addEventListener('click', () => addEnergy('goal'));
+$('#btnAddWish').addEventListener('click', () => addWish('reality'));
+$('#btnAddWishOptions').addEventListener('click', () => addWish('options'));
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
