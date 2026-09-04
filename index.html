@@ -416,6 +416,21 @@
   .rel-hint{ font-size:.72rem; color:var(--ink-soft); margin-top:8px; }
   .btn.small[aria-pressed="true"].js-rel-connect{ background:var(--accent-2); border-color:var(--accent-2); color:#fff; }
 
+  /* Energietopf (Goal & Reality) */
+  .en-wrap{ display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+  .en-pot{ position:relative; width:150px; flex:none; text-align:center; touch-action:none; user-select:none; -webkit-user-select:none; margin:0 auto; }
+  .en-pot svg{ width:100%; height:auto; cursor:ns-resize; touch-action:none; display:block; }
+  .en-level{ font-weight:700; color:var(--accent); margin-top:4px; font-size:1.05rem; }
+  .en-cap{ font-size:.72rem; color:var(--ink-soft); }
+  .en-lists{ flex:1; min-width:240px; display:flex; flex-direction:column; gap:14px; }
+  .en-block .en-head{ font-weight:600; font-size:.9rem; }
+  .en-block .en-sub{ font-size:.72rem; color:var(--ink-soft); margin:1px 0 6px; }
+  .en-block.en-src .en-head{ color:#3f8a56; }
+  .en-block.en-drain .en-head{ color:#b4523f; }
+  .en-items{ display:flex; flex-direction:column; gap:6px; }
+  .en-add-row{ margin-top:6px; }
+  @media (max-width:580px){ .en-pot{ width:130px; } }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -444,7 +459,7 @@
   @media print{
     header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .overlay, .item-del, .item-take, .export-row,
     .it-toolbar, .it-tray, .it-del, .it-grip, .it-pov, .it-empty,
-    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl{ display:none !important; }
+    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl, .en-add-row{ display:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -459,7 +474,7 @@
     /* Farbige Ergebnis-Elemente wirklich drucken (Browser lassen Hintergrundfarben sonst weg) */
     .biq-dot, .biq-square, .marker, .marker .val, .scale .track, .stars .star,
     .it-stage, .it-floor, .it-fig-body svg, .it-situation, .it-redline, .smart-badge,
-    .tl-line, .tl-dot, .wheel-stage svg, .rel-stage, .rel-node, .rel-links{
+    .tl-line, .tl-dot, .wheel-stage svg, .rel-stage, .rel-node, .rel-links, .en-pot svg, .en-liquid{
       -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
   .print-goal{ display:none; }
@@ -528,12 +543,14 @@
     <div id="smartList"></div>
     <div id="wellformList"></div>
     <div id="timelineList"></div>
+    <div id="energyListGoal"></div>
     <div class="add-tool-row coach-only" style="text-align:center">
       <button class="btn ghost small" id="btnAddScaleGoal">+ Skala</button>
       <button class="btn ghost small" id="btnAddBiqGoal" title="Beobachtung im Quadrat">+ BiQ</button>
       <button class="btn ghost small" id="btnAddSmart" title="Zielkreuz (SMART)">+ Zielkreuz</button>
       <button class="btn ghost small" id="btnAddWellform" title="Wohlgeformtes Ziel">+ Wohlgeformt</button>
       <button class="btn ghost small" id="btnAddTimeline" title="Zeitstrahl mit Meilensteinen">+ Zeitstrahl</button>
+      <button class="btn ghost small" id="btnAddEnergyGoal" title="Energietopf">+ Energietopf</button>
     </div>
   </section>
 
@@ -550,6 +567,7 @@
     <div id="valuesqList"></div>
     <div id="wheelList"></div>
     <div id="relmapList"></div>
+    <div id="energyList"></div>
     <div id="teamList"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScale">+ Skala</button>
@@ -558,6 +576,7 @@
       <button class="btn ghost small" id="btnAddValuesq" title="Wertequadrat (Schulz von Thun)">+ Wertequadrat</button>
       <button class="btn ghost small" id="btnAddWheel" title="Lebensrad (Wheel of Life)">+ Lebensrad</button>
       <button class="btn ghost small" id="btnAddRelmap" title="Beziehungs-/Stakeholder-Karte">+ Beziehungskarte</button>
+      <button class="btn ghost small" id="btnAddEnergy" title="Energietopf">+ Energietopf</button>
       <button class="btn ghost small" id="btnAddTeam" title="Inneres Team – Aufstellung">+ Inneres Team</button>
     </div>
   </section>
@@ -636,6 +655,7 @@ const state = {
   timelines: [],           // Zeitstrahl (Goal): [{id,phase,startLabel,endLabel,points:[{id,pos,label,date}]}]
   wheels: [],              // Lebensrad (Reality): [{id,phase,labels:[N],values:[N]}]
   relmaps: [],             // Beziehungskarte (Reality): [{id,phase,nodes:[{id,x,y,label}],links:[{id,a,b,kind}]}]
+  energy: [],              // Energietopf (Goal & Reality): [{id,phase,level,lists:[[{id,text}]×4]}]
   opt2axis: false,         // Zwei-Achsen-Bewertung der Optionen (vom Coach schaltbar)
   optAxisA: '',            // Beschriftung Achse A (Sterne links)
   optAxisB: ''             // Beschriftung Achse B (Sterne rechts)
@@ -885,6 +905,7 @@ function render(opts={}){
   renderTimelines(opts);
   renderWheels(opts);
   renderRelmaps(opts);
+  renderEnergy(opts);
 }
 
 /* ==========================================================================
@@ -2170,6 +2191,93 @@ function updateRelmapEl(o){
   drawRelLinks(o);
 }
 
+// ---- Energietopf (Goal & Reality) ----------------------------------------
+// Topf mit ziehbarem Füllstand (0–100 %) + vier beschriftete Listen.
+let draggingEnergy = null;   // id (Echo-Schutz)
+const EN_TOP = 38, EN_BOT = 120;   // Flüssigkeits-Grenzen in viewBox-Einheiten
+const EN_LISTS = [
+  { title:'Energiequellen',   sub:'Was gibt dir Energie / füllt den Topf?', cls:'en-src' },
+  { title:'Energieräuber',    sub:'Was zieht Energie ab / leert den Topf?', cls:'en-drain' },
+  { title:'Für die nächste Zeit', sub:'Was kannst du für dich tun, um deinen Energietopf gut gefüllt zu haben?', cls:'' },
+  { title:'Notfall-Booster (drei Dinge)', sub:'Welche drei Dinge kannst du in Zeiten erhöhten Bedarfs ganz konkret nutzen?', cls:'' }
+];
+function enPotSVG(){
+  const path='M26 34 L94 34 L90 112 Q90 120 82 120 L38 120 Q30 120 30 112 Z';
+  return `<svg viewBox="0 0 120 132" xmlns="http://www.w3.org/2000/svg">`+
+    `<defs><clipPath id="enclip-CID"><path d="${path}"/></clipPath>`+
+    `<linearGradient id="engrad-CID" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fce9c"/><stop offset="1" stop-color="#3f8a56"/></linearGradient></defs>`+
+    `<path d="${path}" style="fill:var(--surface)"/>`+
+    `<g clip-path="url(#enclip-CID)"><rect class="en-liquid" x="24" y="120" width="72" height="12" fill="url(#engrad-CID)"/>`+
+    `<ellipse class="en-wave" cx="60" cy="120" rx="33" ry="3" fill="#a6dcb0" opacity=".75"/></g>`+
+    `<path d="${path}" fill="none" style="stroke:var(--ink-soft)" stroke-width="3"/>`+
+    `<path d="M28 46 C15 49 15 66 28 68" fill="none" style="stroke:var(--ink-soft)" stroke-width="4"/>`+
+    `<path d="M92 46 C105 49 105 66 92 68" fill="none" style="stroke:var(--ink-soft)" stroke-width="4"/>`+
+    `<ellipse cx="60" cy="34" rx="34" ry="5.5" fill="none" style="stroke:var(--ink-soft)" stroke-width="3"/>`+
+  `</svg>`;
+}
+function addEnergy(phase){
+  const mk=()=>({ id:'ei'+Date.now()+Math.floor(Math.random()*1e5), text:'' });
+  state.energy.push({ id:'en'+Date.now(), phase, level:50, lists:[[],[],[],[mk(),mk(),mk()]] });
+  render(); broadcast();
+}
+function renderEnergy(opts={}){
+  renderEnergyList($('#energyList'),     'reality');
+  renderEnergyList($('#energyListGoal'), 'goal');
+}
+function renderEnergyList(list, phase){ listRebuild(list, state.energy.filter(x=>(x.phase||'reality')===phase), buildEnergyEl, updateEnergyEl); }
+function buildEnergyEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  const uid=o.id.replace(/[^a-z0-9]/gi,'');   // eindeutige clip/gradient-IDs pro Topf
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">Energietopf</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    `<div class="en-wrap">`+
+      `<div class="en-pot">${enPotSVG().replace(/CID/g,uid)}<div class="en-level">50 %</div><div class="en-cap">Wie voll ist dein Energietopf?</div></div>`+
+      `<div class="en-lists">`+
+        EN_LISTS.map((L,li)=>`<div class="en-block ${L.cls}"><div class="en-head">${L.title}</div><div class="en-sub">${L.sub}</div>`+
+          `<div class="en-items" data-li="${li}"></div>`+
+          `<div class="en-add-row"><button class="btn ghost small js-en-add" data-li="${li}">+ Eintrag</button></div></div>`).join('')+
+      `</div>`+
+    `</div>`;
+  const id=o.id, live=()=>state.energy.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.energy=state.energy.filter(x=>x.id!==id); render(); broadcast(); });
+  $$('.js-en-add',el).forEach(btn=>btn.addEventListener('click',()=>{ const o=live(); if(!o)return;
+    o.lists[+btn.dataset.li].push({ id:'ei'+Date.now()+Math.floor(Math.random()*1e5), text:'' }); render(); broadcast(); }));
+  const svg=$('.en-pot svg',el);
+  const setLvl=e=>{ const o=live(); if(!o)return; const r=svg.getBoundingClientRect();
+    const vy=(e.clientY-r.top)/r.height*132;
+    o.level=Math.max(0,Math.min(100, Math.round((EN_BOT-vy)/(EN_BOT-EN_TOP)*100)));
+    drawEnergy(o); throttledBroadcast(); };
+  svg.addEventListener('pointerdown',e=>{ e.preventDefault(); draggingEnergy=id; try{svg.setPointerCapture(e.pointerId);}catch(_){}; setLvl(e); });
+  svg.addEventListener('pointermove',e=>{ if(draggingEnergy!==id)return; setLvl(e); });
+  const end=()=>{ if(draggingEnergy===id){ draggingEnergy=null; broadcast(); } };
+  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
+  return el;
+}
+function buildEnItem(enId, li, it){
+  const el=document.createElement('div'); el.className='item'; el.dataset.id=it.id;
+  el.innerHTML=`<input class="item-text" placeholder="…"><button class="item-del" title="Entfernen">✕</button>`;
+  const iid=it.id, find=()=>{ const o=state.energy.find(x=>x.id===enId); return o&&o.lists[li].find(q=>q.id===iid); };
+  $('.item-text',el).addEventListener('input',e=>{ const q=find(); if(!q)return; q.text=e.target.value; broadcast(); });
+  $('.item-del',el).addEventListener('click',()=>{ const o=state.energy.find(x=>x.id===enId); if(!o)return;
+    o.lists[li]=o.lists[li].filter(q=>q.id!==iid); render(); broadcast(); });
+  return el;
+}
+function drawEnergy(o){
+  const el=document.querySelector(`.tool[data-id="${o.id}"]`); if(!el)return;
+  const level=Math.max(0,Math.min(100,o.level??50));
+  const topY=EN_BOT - level/100*(EN_BOT-EN_TOP);
+  const liq=$('.en-liquid',el); if(liq){ liq.setAttribute('y',topY.toFixed(1)); liq.setAttribute('height',(132-topY).toFixed(1)); }
+  const wave=$('.en-wave',el); if(wave){ wave.setAttribute('cy',topY.toFixed(1)); wave.style.display=level<=0?'none':''; }
+  const lvlEl=$('.en-level',el); if(lvlEl && document.activeElement!==lvlEl) lvlEl.textContent=Math.round(level)+' %';
+}
+function updateEnergyEl(o){
+  const el=document.querySelector(`.tool[data-id="${o.id}"]`); if(!el)return;
+  if(draggingEnergy!==o.id) drawEnergy(o);
+  EN_LISTS.forEach((L,li)=>{ const box=$(`.en-items[data-li="${li}"]`,el); if(!box)return;
+    syncList(box, o.lists[li], it=>buildEnItem(o.id,li,it), it=>{ const e=$(`.item[data-id="${it.id}"]`,box); if(e) setIfIdle($('.item-text',e), it.text||''); });
+  });
+}
+
 /* ==========================================================================
    7. PDF-Export – über die Druckfunktion des Browsers ("Als PDF speichern").
    Bewusst ohne externe Bibliothek: robust, offline, keine Abhängigkeiten.
@@ -2220,6 +2328,8 @@ $('#btnAddValuesq').addEventListener('click', () => addValuesq('reality'));
 $('#btnAddTimeline').addEventListener('click', () => addTimeline('goal'));
 $('#btnAddWheel').addEventListener('click', () => addWheel('reality'));
 $('#btnAddRelmap').addEventListener('click', () => addRelmap('reality'));
+$('#btnAddEnergy').addEventListener('click', () => addEnergy('reality'));
+$('#btnAddEnergyGoal').addEventListener('click', () => addEnergy('goal'));
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
