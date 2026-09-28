@@ -445,10 +445,17 @@
 
   /* Lizenz-Fußzeile */
   .license{ max-width:var(--maxw); margin:28px auto 0; padding:14px 20px 2px; border-top:1px solid var(--line);
+    display:flex; flex-direction:column; align-items:center; gap:6px;
     text-align:center; font-size:.72rem; color:var(--ink-soft); line-height:1.5; }
   .license strong{ color:var(--ink); font-weight:600; }
   .license a{ color:var(--accent); text-decoration:none; }
   .license a:hover{ text-decoration:underline; }
+  .cc-badge{ display:inline-block; line-height:0; }
+  .cc-icons{ display:inline-flex; gap:5px; color:var(--ink-soft); }
+  .cc-icons svg{ width:24px; height:24px; }
+  .cc-icons svg > circle:first-child{ fill:none; stroke:currentColor; stroke-width:2; }
+  .cc-icons svg text{ fill:currentColor; font:700 14px system-ui, -apple-system, sans-serif; }
+  .cc-icons svg .g{ fill:currentColor; }
 
   /* Tetralemma (systemisch) */
   .tetra-q{ width:100%; margin-bottom:12px; }
@@ -675,8 +682,15 @@
 
   <!-- Lizenz / Urheber -->
   <footer class="license">
-    GROW – Coaching-Begleitung von <strong>P. Heisterkamp</strong> · lizenziert unter
-    <a href="https://creativecommons.org/licenses/by-nd/4.0/deed.de" target="_blank" rel="noopener license">CC BY-ND 4.0</a>
+    <a class="cc-badge" href="https://creativecommons.org/licenses/by-nd/4.0/deed.de" target="_blank" rel="noopener license" title="Creative Commons BY-ND 4.0">
+      <span class="cc-icons" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15"/><text x="16" y="21" text-anchor="middle">CC</text></svg>
+        <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15"/><circle class="g" cx="16" cy="10.5" r="3.4"/><path class="g" d="M9.5 24c0-6 13-6 13 0z"/></svg>
+        <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15"/><rect class="g" x="9" y="13" width="14" height="2.4" rx="1.2"/><rect class="g" x="9" y="17.6" width="14" height="2.4" rx="1.2"/></svg>
+      </span>
+    </a>
+    <span class="cc-text">GROW – Coaching-Begleitung von <strong>P. Heisterkamp</strong> · © 2026 ·
+      lizenziert unter <a href="https://creativecommons.org/licenses/by-nd/4.0/deed.de" target="_blank" rel="noopener license">CC BY-ND 4.0</a></span>
   </footer>
 </main>
 
