@@ -443,6 +443,22 @@
   .wish-aff .dot.on{ background:var(--accent-2); border-color:var(--accent-2); }
   .wish-motto{ margin-top:14px; }
 
+  /* Tetralemma (systemisch) */
+  .tetra-q{ width:100%; margin-bottom:12px; }
+  .tetra-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .tetra-cell{ border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--bg); }
+  .tetra-cell.tetra-5{ grid-column:1 / -1; background:color-mix(in srgb, var(--accent-2) 8%, var(--surface)); border-style:dashed; }
+  .tetra-cell .tetra-lab{ font-weight:600; font-size:.85rem; color:var(--accent); }
+  .tetra-cell.tetra-5 .tetra-lab{ color:var(--accent-2); }
+  .tetra-cell .tetra-sub{ font-size:.7rem; color:var(--ink-soft); margin:1px 0 5px; }
+  .tetra-cell textarea{ width:100%; min-height:58px; border:none; background:none; resize:vertical; font:inherit; color:var(--ink); }
+  .tetra-cell textarea:focus{ outline:none; }
+  .tetra-res{ display:inline-flex; gap:3px; margin-top:4px; align-items:center; }
+  .tetra-res .rlab{ font-size:.64rem; color:var(--ink-soft); margin-right:2px; }
+  .tetra-res .dot{ width:11px; height:11px; border-radius:50%; border:1.5px solid var(--line); cursor:pointer; }
+  .tetra-res .dot.on{ background:var(--accent); border-color:var(--accent); }
+  @media (max-width:580px){ .tetra-grid{ grid-template-columns:1fr; } }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -487,7 +503,7 @@
     .biq-dot, .biq-square, .marker, .marker .val, .scale .track, .stars .star,
     .it-stage, .it-floor, .it-fig-body svg, .it-situation, .it-redline, .smart-badge,
     .tl-line, .tl-dot, .wheel-stage svg, .rel-stage, .rel-node, .rel-links, .en-pot svg, .en-liquid,
-    .wish-heart, .wish-aff .dot{
+    .wish-heart, .wish-aff .dot, .tetra-res .dot{
       -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
   .print-goal{ display:none; }
@@ -582,6 +598,7 @@
     <div id="relmapList"></div>
     <div id="energyList"></div>
     <div id="wishList"></div>
+    <div id="tetraList"></div>
     <div id="teamList"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScale">+ Skala</button>
@@ -592,6 +609,7 @@
       <button class="btn ghost small" id="btnAddRelmap" title="Beziehungs-/Stakeholder-Karte">+ Beziehungskarte</button>
       <button class="btn ghost small" id="btnAddEnergy" title="Energietopf">+ Energietopf</button>
       <button class="btn ghost small" id="btnAddWish" title="Wunschelemente-Technik (ZRM)">+ Wunschelemente</button>
+      <button class="btn ghost small" id="btnAddTetra" title="Tetralemma (systemisch)">+ Tetralemma</button>
       <button class="btn ghost small" id="btnAddTeam" title="Inneres Team – Aufstellung">+ Inneres Team</button>
     </div>
   </section>
@@ -615,9 +633,11 @@
     <div id="optMatrixWrap" hidden></div>
     <div id="scaleListOptions"></div>
     <div id="wishListOptions"></div>
+    <div id="tetraListOptions"></div>
     <div class="add-tool-row coach-only">
       <button class="btn ghost small" id="btnAddScaleOptions">+ Skala</button>
       <button class="btn ghost small" id="btnAddWishOptions" title="Wunschelemente-Technik (ZRM)">+ Wunschelemente</button>
+      <button class="btn ghost small" id="btnAddTetraOptions" title="Tetralemma (systemisch)">+ Tetralemma</button>
     </div>
     <label class="field" style="margin-top:24px">
       <span class="lab">Notizen (optional)</span>
@@ -674,6 +694,7 @@ const state = {
   relmaps: [],             // Beziehungskarte (Reality): [{id,phase,nodes:[{id,x,y,label}],links:[{id,a,b,kind}]}]
   energy: [],              // Energietopf (Goal & Reality): [{id,phase,level,lists:[[{id,text}]×4]}]
   wishes: [],              // Wunschelemente/ZRM (Reality & Options): [{id,phase,theme,motto,items:[{id,text,wish,affect}]}]
+  tetra: [],               // Tetralemma (Reality & Options): [{id,phase,question,positions:[{text,res}×5]}]
   opt2axis: false,         // Zwei-Achsen-Bewertung der Optionen (vom Coach schaltbar)
   optAxisA: '',            // Beschriftung Achse A (Sterne links)
   optAxisB: ''             // Beschriftung Achse B (Sterne rechts)
@@ -925,6 +946,7 @@ function render(opts={}){
   renderRelmaps(opts);
   renderEnergy(opts);
   renderWishes(opts);
+  renderTetra(opts);
 }
 
 /* ==========================================================================
@@ -2358,6 +2380,48 @@ function updateWishEl(o){
   syncList($('.wish-items',el), o.items, it=>buildWishItem(o.id,it), it=>updateWishItem(o.id,it));
 }
 
+// ---- Tetralemma (Reality & Options) --------------------------------------
+// Systemische Struktur (Sparrer/Varga von Kibéd) zur Erkundung eines Entweder-oder:
+// Das Eine · Das Andere · Beides · Keines von beidem · … all dies nicht (und selbst das nicht).
+const TETRA_POS = [
+  ['Das Eine','Die eine Seite / Option'],
+  ['Das Andere','Die andere Seite / Option'],
+  ['Beides','Was verbindet beide? Wo gilt beides zugleich?'],
+  ['Keines von beidem','Etwas ganz anderes – jenseits der Alternative'],
+  ['… all dies nicht – und selbst das nicht','Die lösende Haltung: das ganze Feld loslassen']
+];
+function addTetra(phase){ state.tetra.push({ id:'te'+Date.now(), phase, question:'', positions:TETRA_POS.map(()=>({text:'',res:0})) }); render(); broadcast(); }
+function renderTetra(opts={}){
+  renderTetraList($('#tetraList'),        'reality');
+  renderTetraList($('#tetraListOptions'), 'options');
+}
+function renderTetraList(list, phase){ listRebuild(list, state.tetra.filter(x=>(x.phase||'reality')===phase), buildTetraEl, updateTetraEl); }
+function buildTetraEl(o){
+  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  el.innerHTML = `<div class="tool-top"><span class="tool-title">Tetralemma</span>`+
+    `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
+    `<input class="text tetra-q" placeholder="Die Frage / das Dilemma (Entweder-oder) …">`+
+    `<div class="tetra-grid">`+
+      TETRA_POS.map((p,i)=>`<div class="tetra-cell${i===4?' tetra-5':''}"><div class="tetra-lab">${p[0]}</div>`+
+        `<div class="tetra-sub">${p[1]}</div><textarea data-i="${i}" placeholder="…"></textarea>`+
+        `<div class="tetra-res"><span class="rlab">spürbar:</span>`+
+          [1,2,3].map(n=>`<span class="dot" data-i="${i}" data-n="${n}"></span>`).join('')+`</div></div>`).join('')+
+    `</div>`;
+  const id=o.id, live=()=>state.tetra.find(x=>x.id===id);
+  $('.js-del',el).addEventListener('click',()=>{ state.tetra=state.tetra.filter(x=>x.id!==id); render(); broadcast(); });
+  $('.tetra-q',el).addEventListener('input',e=>{ const o=live(); if(!o)return; o.question=e.target.value; broadcast(); });
+  $$('.tetra-cell textarea',el).forEach(t=>t.addEventListener('input',()=>{ const o=live(); if(!o)return; o.positions[+t.dataset.i].text=t.value; broadcast(); }));
+  $$('.tetra-res .dot',el).forEach(d=>d.addEventListener('click',()=>{ const o=live(); if(!o)return;
+    const i=+d.dataset.i, n=+d.dataset.n; o.positions[i].res=(o.positions[i].res===n)?n-1:n; updateTetraEl(o); broadcast(); }));
+  return el;
+}
+function updateTetraEl(o){
+  const el=document.querySelector(`.tool[data-id="${o.id}"]`); if(!el)return;
+  setIfIdle($('.tetra-q',el), o.question||'');
+  $$('.tetra-cell textarea',el).forEach(t=>setIfIdle(t, o.positions[+t.dataset.i].text||''));
+  $$('.tetra-res .dot',el).forEach(d=>d.classList.toggle('on', +d.dataset.n <= (o.positions[+d.dataset.i].res||0)));
+}
+
 /* ==========================================================================
    7. PDF-Export – über die Druckfunktion des Browsers ("Als PDF speichern").
    Bewusst ohne externe Bibliothek: robust, offline, keine Abhängigkeiten.
@@ -2412,6 +2476,8 @@ $('#btnAddEnergy').addEventListener('click', () => addEnergy('reality'));
 $('#btnAddEnergyGoal').addEventListener('click', () => addEnergy('goal'));
 $('#btnAddWish').addEventListener('click', () => addWish('reality'));
 $('#btnAddWishOptions').addEventListener('click', () => addWish('options'));
+$('#btnAddTetra').addEventListener('click', () => addTetra('reality'));
+$('#btnAddTetraOptions').addEventListener('click', () => addTetra('options'));
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
@@ -2444,7 +2510,11 @@ if (ROLE === 'coachee'){
   roleBar.innerHTML =
     '<span>Teilnehmer-Ansicht – Sie sehen, woran gerade gearbeitet wird, und können mitschreiben.</span>' +
     '<span class="conn" id="conn"><span class="dot"></span><span id="connText">…</span></span>' +
+    '<button class="rb-copy" id="btnExportRB" title="Alle Seiten als PDF speichern">Als PDF</button>' +
     infoBtn;
+  // Export für Teilnehmer:innen von JEDER Phase aus erreichbar (nicht nur auf der Will-Seite,
+  // die sie nur sehen, wenn der Coach gerade dort ist).
+  $('#btnExportRB').addEventListener('click', exportPdf);
 } else {
   roleBar.innerHTML =
     '<span>Coach-Ansicht</span>' +
