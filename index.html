@@ -443,6 +443,13 @@
   .wish-aff .dot.on{ background:var(--accent-2); border-color:var(--accent-2); }
   .wish-motto{ margin-top:14px; }
 
+  /* Lizenz-Fußzeile */
+  .license{ max-width:var(--maxw); margin:28px auto 0; padding:14px 20px 2px; border-top:1px solid var(--line);
+    text-align:center; font-size:.72rem; color:var(--ink-soft); line-height:1.5; }
+  .license strong{ color:var(--ink); font-weight:600; }
+  .license a{ color:var(--accent); text-decoration:none; }
+  .license a:hover{ text-decoration:underline; }
+
   /* Tetralemma (systemisch) */
   .tetra-q{ width:100%; margin-bottom:12px; }
   .tetra-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -665,6 +672,12 @@
       <button class="btn ghost small" id="btnExport">Als PDF exportieren</button>
     </div>
   </section>
+
+  <!-- Lizenz / Urheber -->
+  <footer class="license">
+    GROW – Coaching-Begleitung von <strong>P. Heisterkamp</strong> · lizenziert unter
+    <a href="https://creativecommons.org/licenses/by-nd/4.0/deed.de" target="_blank" rel="noopener license">CC BY-ND 4.0</a>
+  </footer>
 </main>
 
 <div class="rolebar" id="roleBar"></div>
