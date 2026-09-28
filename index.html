@@ -462,6 +462,9 @@
   .tetra-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .tetra-cell{ border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--bg); }
   .tetra-cell.tetra-5{ grid-column:1 / -1; background:color-mix(in srgb, var(--accent-2) 8%, var(--surface)); border-style:dashed; }
+  .tetra-cell[hidden]{ display:none; }
+  .tetra-reveal{ display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .tetra-reveal .btn:disabled{ opacity:.4; cursor:default; }
   .tetra-cell .tetra-lab{ font-weight:600; font-size:.85rem; color:var(--accent); }
   .tetra-cell.tetra-5 .tetra-lab{ color:var(--accent-2); }
   .tetra-cell .tetra-sub{ font-size:.7rem; color:var(--ink-soft); margin:1px 0 5px; }
@@ -2417,7 +2420,7 @@ const TETRA_POS = [
   ['Keines von beidem','Etwas ganz anderes – jenseits der Alternative'],
   ['… all dies nicht – und selbst das nicht','Die lösende Haltung: das ganze Feld loslassen']
 ];
-function addTetra(phase){ state.tetra.push({ id:'te'+Date.now(), phase, question:'', positions:TETRA_POS.map(()=>({text:'',res:0})) }); render(); broadcast(); }
+function addTetra(phase){ state.tetra.push({ id:'te'+Date.now(), phase, question:'', revealed:1, positions:TETRA_POS.map(()=>({text:'',res:0})) }); render(); broadcast(); }
 function renderTetra(opts={}){
   renderTetraList($('#tetraList'),        'reality');
   renderTetraList($('#tetraListOptions'), 'options');
@@ -2433,10 +2436,17 @@ function buildTetraEl(o){
         `<div class="tetra-sub">${p[1]}</div><textarea data-i="${i}" placeholder="…"></textarea>`+
         `<div class="tetra-res"><span class="rlab">spürbar:</span>`+
           [1,2,3].map(n=>`<span class="dot" data-i="${i}" data-n="${n}"></span>`).join('')+`</div></div>`).join('')+
+    `</div>`+
+    `<div class="tetra-reveal coach-only">`+
+      `<button class="btn ghost small js-tetra-less">− ausblenden</button>`+
+      `<span class="tetra-count hint"></span>`+
+      `<button class="btn ghost small js-tetra-more">nächste Position einblenden →</button>`+
     `</div>`;
   const id=o.id, live=()=>state.tetra.find(x=>x.id===id);
   $('.js-del',el).addEventListener('click',()=>{ state.tetra=state.tetra.filter(x=>x.id!==id); render(); broadcast(); });
   $('.tetra-q',el).addEventListener('input',e=>{ const o=live(); if(!o)return; o.question=e.target.value; broadcast(); });
+  $('.js-tetra-more',el).addEventListener('click',()=>{ const o=live(); if(!o)return; o.revealed=Math.min(5,(o.revealed||1)+1); render(); broadcast(); });
+  $('.js-tetra-less',el).addEventListener('click',()=>{ const o=live(); if(!o)return; o.revealed=Math.max(1,(o.revealed||1)-1); render(); broadcast(); });
   $$('.tetra-cell textarea',el).forEach(t=>t.addEventListener('input',()=>{ const o=live(); if(!o)return; o.positions[+t.dataset.i].text=t.value; broadcast(); }));
   $$('.tetra-res .dot',el).forEach(d=>d.addEventListener('click',()=>{ const o=live(); if(!o)return;
     const i=+d.dataset.i, n=+d.dataset.n; o.positions[i].res=(o.positions[i].res===n)?n-1:n; updateTetraEl(o); broadcast(); }));
@@ -2447,6 +2457,13 @@ function updateTetraEl(o){
   setIfIdle($('.tetra-q',el), o.question||'');
   $$('.tetra-cell textarea',el).forEach(t=>setIfIdle(t, o.positions[+t.dataset.i].text||''));
   $$('.tetra-res .dot',el).forEach(d=>d.classList.toggle('on', +d.dataset.n <= (o.positions[+d.dataset.i].res||0)));
+  // Positionen nacheinander freischalten: nur die ersten `revealed` sind sichtbar
+  const rev=o.revealed||1;
+  $$('.tetra-cell',el).forEach((c,i)=>{ c.hidden = i>=rev; });
+  const cnt=$('.tetra-count',el); if(cnt) cnt.textContent=`Position ${rev} von 5`;
+  const more=$('.js-tetra-more',el), less=$('.js-tetra-less',el);
+  if(more) more.disabled=rev>=5;
+  if(less) less.disabled=rev<=1;
 }
 
 /* ==========================================================================
