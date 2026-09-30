@@ -443,6 +443,21 @@
   .wish-aff .dot.on{ background:var(--accent-2); border-color:var(--accent-2); }
   .wish-motto{ margin-top:14px; }
 
+  /* Videokachel – Parkzone für das (separat laufende) Teams-Video */
+  .video-tile{ position:fixed; z-index:45; width:240px; height:150px; display:flex; flex-direction:column;
+    border:2px dashed var(--accent); border-radius:10px; box-shadow:var(--shadow);
+    background:color-mix(in srgb, var(--surface) 42%, transparent); backdrop-filter:blur(1px); }
+  .video-tile[hidden]{ display:none; }
+  .vt-head{ display:flex; align-items:center; justify-content:space-between; gap:6px; padding:3px 4px 3px 8px;
+    background:var(--accent); color:#fff; border-radius:7px 7px 0 0; font-size:.72rem; font-weight:600;
+    cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .vt-head:active{ cursor:grabbing; }
+  .vt-collapse{ border:none; background:none; color:#fff; font-size:1.05rem; line-height:1; cursor:pointer; padding:0 5px; }
+  .vt-body{ flex:1; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .vt-hint{ font-size:.7rem; color:var(--ink-soft); text-align:center; padding:6px; }
+  .vt-resize{ position:absolute; right:2px; bottom:2px; width:15px; height:15px; cursor:nwse-resize; touch-action:none;
+    border-right:3px solid var(--accent); border-bottom:3px solid var(--accent); border-radius:0 0 5px 0; }
+
   /* Lizenz-Fußzeile */
   .license{ max-width:var(--maxw); margin:28px auto 0; padding:14px 20px 2px; border-top:1px solid var(--line);
     display:flex; flex-direction:column; align-items:center; gap:6px;
@@ -504,7 +519,7 @@
   @media print{
     header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .overlay, .item-del, .item-take, .export-row,
     .it-toolbar, .it-tray, .it-del, .it-grip, .it-pov, .it-empty,
-    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl, .en-add-row{ display:none !important; }
+    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl, .en-add-row, .video-tile{ display:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -696,6 +711,13 @@
       lizenziert unter <a href="https://creativecommons.org/licenses/by-nd/4.0/deed.de" target="_blank" rel="noopener license">CC BY-ND 4.0</a></span>
   </footer>
 </main>
+
+<!-- Videokachel: verschieb-/einklappbare Parkzone für das separate Teams-Video -->
+<div class="video-tile" id="videoTile" hidden>
+  <div class="vt-head" id="vtHead"><span>📹 Videokachel</span><button class="vt-collapse" id="vtCollapse" title="Einklappen">–</button></div>
+  <div class="vt-body"><span class="vt-hint">Teams-Video (verkleinert)<br>hierher schieben</span></div>
+  <div class="vt-resize" id="vtResize" title="Größe ändern"></div>
+</div>
 
 <div class="rolebar" id="roleBar"></div>
 
@@ -2554,6 +2576,7 @@ if (ROLE === 'coachee'){
   roleBar.innerHTML =
     '<span>Teilnehmer-Ansicht – Sie sehen, woran gerade gearbeitet wird, und können mitschreiben.</span>' +
     '<span class="conn" id="conn"><span class="dot"></span><span id="connText">…</span></span>' +
+    '<button class="rb-copy" id="btnVideoTile">Videokachel ausklappen</button>' +
     '<button class="rb-copy" id="btnExportRB" title="Alle Seiten als PDF speichern">Als PDF</button>' +
     infoBtn;
   // Export für Teilnehmer:innen von JEDER Phase aus erreichbar (nicht nur auf der Will-Seite,
@@ -2565,6 +2588,7 @@ if (ROLE === 'coachee'){
     '<span class="conn" id="conn"><span class="dot"></span><span id="connText">…</span></span>' +
     '<a href="' + coacheeLink + '" target="_blank" rel="noopener" title="Teilnehmer-Link">Teilnehmer-Link</a>' +
     '<button class="rb-copy" id="btnCopyLink">kopieren</button>' +
+    '<button class="rb-copy" id="btnVideoTile">Videokachel ausklappen</button>' +
     infoBtn;
   $('#btnCopyLink').addEventListener('click', async () => {
     const btn = $('#btnCopyLink');
@@ -2573,6 +2597,78 @@ if (ROLE === 'coachee'){
     setTimeout(() => btn.textContent = 'kopieren', 1800);
   });
 }
+
+/* ==========================================================================
+   Videokachel – rein lokale, verschieb-/größenverstellbare Parkzone, über die
+   der/die Nutzer:in das separat laufende (verkleinerte) Teams-Video legt.
+   Nicht synchronisiert; Position/Größe pro Browser in localStorage.
+   ========================================================================== */
+(function videoTile(){
+  const tile = $('#videoTile'); if(!tile) return;
+  const head = $('#vtHead', tile), grip = $('#vtResize', tile);
+  const KEY = 'grow:videotile';
+  const btnLabel = () => { const b = $('#btnVideoTile'); if(b) b.textContent = tile.hidden ? 'Videokachel ausklappen' : 'Videokachel einklappen'; };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({
+    left:tile.style.left, top:tile.style.top, width:tile.style.width, height:tile.style.height, open:!tile.hidden })); } catch(e){} };
+
+  function clampSnap(){                       // am nächsten Bildschirmrand einrasten + im Sichtfeld halten
+    const m = 8, w = tile.offsetWidth, h = tile.offsetHeight;
+    let x = parseFloat(tile.style.left)||0, y = parseFloat(tile.style.top)||0;
+    x = Math.max(m, Math.min(innerWidth - w - m, x));
+    y = Math.max(m, Math.min(innerHeight - h - m, y));
+    const dL=x-m, dR=(innerWidth-w-m)-x, dT=y-m, dB=(innerHeight-h-m)-y;
+    const min = Math.min(dL,dR,dT,dB);
+    if(min===dL) x=m; else if(min===dR) x=innerWidth-w-m; else if(min===dT) y=m; else y=innerHeight-h-m;
+    tile.style.left=x+'px'; tile.style.top=y+'px'; tile.style.right='auto'; tile.style.bottom='auto';
+  }
+  function setOpen(open){
+    tile.hidden = !open;
+    if(open && !tile.style.left){         // erstes Öffnen -> Standardplatz unten rechts
+      tile.style.width='240px'; tile.style.height='150px';
+      tile.style.left=Math.max(8, innerWidth-248)+'px'; tile.style.top=Math.max(8, innerHeight-206)+'px';
+      clampSnap();
+    }
+    btnLabel(); save();
+  }
+
+  // gespeicherten Zustand wiederherstellen
+  try { const s=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(s){ if(s.left) tile.style.left=s.left; if(s.top) tile.style.top=s.top;
+      if(s.width) tile.style.width=s.width; if(s.height) tile.style.height=s.height;
+      if(s.open){ tile.hidden=false; clampSnap(); } } } catch(e){}
+  btnLabel();
+
+  // Verschieben (Kopfleiste)
+  let drag=null;
+  head.addEventListener('pointerdown', e=>{ if(e.target.closest('.vt-collapse')) return; e.preventDefault();
+    const r=tile.getBoundingClientRect(); drag={dx:e.clientX-r.left, dy:e.clientY-r.top};
+    try{ head.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  head.addEventListener('pointermove', e=>{ if(!drag) return;
+    const w=tile.offsetWidth, h=tile.offsetHeight;
+    let x=Math.max(0,Math.min(innerWidth-w, e.clientX-drag.dx)), y=Math.max(0,Math.min(innerHeight-h, e.clientY-drag.dy));
+    tile.style.left=x+'px'; tile.style.top=y+'px'; tile.style.right='auto'; tile.style.bottom='auto';
+  });
+  const dragEnd=()=>{ if(!drag) return; drag=null; clampSnap(); save(); };
+  head.addEventListener('pointerup', dragEnd); head.addEventListener('pointercancel', dragEnd);
+
+  // Größe ändern (Ecke)
+  let res=null;
+  grip.addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation();
+    res={x:e.clientX, y:e.clientY, w:tile.offsetWidth, h:tile.offsetHeight};
+    try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  grip.addEventListener('pointermove', e=>{ if(!res) return;
+    tile.style.width=Math.max(140, res.w+(e.clientX-res.x))+'px';
+    tile.style.height=Math.max(90, res.h+(e.clientY-res.y))+'px';
+  });
+  const resEnd=()=>{ if(!res) return; res=null; clampSnap(); save(); };
+  grip.addEventListener('pointerup', resEnd); grip.addEventListener('pointercancel', resEnd);
+
+  $('#vtCollapse', tile).addEventListener('click', ()=> setOpen(false));
+  window.addEventListener('resize', ()=>{ if(!tile.hidden) clampSnap(); });
+  const btn = $('#btnVideoTile'); if(btn) btn.addEventListener('click', ()=> setOpen(tile.hidden));
+})();
 
 // Statusanzeige aus dem Sync-Modul
 Sync.onStatus(({ kind, peers }) => {
