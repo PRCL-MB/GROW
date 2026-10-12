@@ -108,6 +108,20 @@
   nav.tabs button .num{ display:block; font-size:.68rem; opacity:.6; }
   nav.tabs button[aria-selected="true"]{ color:var(--accent); border-bottom-color:var(--accent); }
   nav.tabs button:hover{ color:var(--ink); }
+  /* gesperrte / freischaltbare Phasen */
+  nav.tabs button.locked{ opacity:.4; cursor:default; }
+  nav.tabs button.locked::after{ content:"🔒"; font-size:.6rem; margin-left:4px; vertical-align:1px; }
+  nav.tabs button.unlockable{ opacity:.7; cursor:pointer; }
+  nav.tabs button.unlockable:hover{ opacity:1; color:var(--accent); }
+  nav.tabs button:disabled{ pointer-events:none; }
+  /* Kopfzeile minimierbar (Coach) */
+  .hdr-toggle{ position:absolute; top:7px; right:12px; z-index:21; border:1px solid var(--line);
+    background:var(--surface); color:var(--ink-soft); border-radius:8px; font-size:.74rem; line-height:1; padding:4px 9px; cursor:pointer; }
+  .hdr-toggle:hover{ color:var(--accent); border-color:var(--accent); }
+  header.pinned .pin{ padding-right:52px; }
+  header.collapsed{ min-height:36px; }
+  header.collapsed .pin{ max-height:0 !important; opacity:0 !important; padding:0 !important; }
+  header.collapsed nav.tabs{ display:none !important; }
 
   /* ---- Hauptbereich ---- */
   main{ max-width:var(--maxw); margin:0 auto; padding:28px 20px 96px; }
@@ -566,11 +580,12 @@
 
 <!-- ---------- 2. HTML-Gerüst ---------- -->
 <header id="appHeader">
+  <button class="hdr-toggle coach-only" id="hdrToggle" title="Coachingziel & Phasen ein-/ausklappen" hidden>▾</button>
   <div class="pin">
     <div class="kicker">Coachingziel</div>
     <div class="goaltext" id="pinGoal">–</div>
   </div>
-  <nav class="tabs coach-only" id="tabs" hidden>
+  <nav class="tabs" id="tabs" hidden>
     <button data-phase="goal"    aria-selected="true"><span class="num">1</span>Goal</button>
     <button data-phase="reality" aria-selected="false"><span class="num">2</span>Reality</button>
     <button data-phase="options" aria-selected="false"><span class="num">3</span>Options</button>
@@ -728,7 +743,8 @@
    ========================================================================== */
 const state = {
   started: false,          // wurde "Weiter" gedrückt? -> Coachingziel angeheftet
-  phase: 'goal',           // aktuelle Phase / aktiver Reiter
+  phase: 'goal',           // (veraltet) früher aktive Phase – ersetzt durch unlocked + lokalem viewPhase
+  unlocked: 0,             // FORTSCHRITT (synchron, coach-gesteuert): höchste freigeschaltete Phase 0..3
   fields: {                // freie Textinhalte je Feld-ID
     thema:'', ziel:'', prozess:'', reality:'', options:'', will:''
   },
@@ -941,7 +957,13 @@ function broadcast(){ persist(); Sync.send(snapshot()); }
 
 Sync.onReceive((incoming) => {
   Sync.applyQuiet(() => {
+    const keepUnlocked = state.unlocked, keepStarted = state.started;
     Object.assign(state, incoming);
+    // Fortschritt (unlocked/started) gehört dem Coach – nie von einem (ggf. veralteten) Coachee-Snapshot zurücksetzen
+    if (ROLE === 'coach'){ state.unlocked = keepUnlocked; state.started = keepStarted; }
+    // Neue Phase vom Coach freigeschaltet? -> Coachee wird einmalig mitgenommen (danach wieder frei navigierbar)
+    if ((state.unlocked||0) > prevUnlocked){ viewPhase = PHASES[state.unlocked||0]; persistView(); }
+    prevUnlocked = state.unlocked || 0;
     render({ keepFocus:true });
   });
   // Coach hat eine Coachee-Änderung übernommen -> lokal sichern + an alle weiterreichen
@@ -954,13 +976,28 @@ Sync.onReceive((incoming) => {
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
 
+/* Navigation: FORTSCHRITT (synchron, state.unlocked – nur der Coach schaltet frei)
+   getrennt von der ANSICHT (lokal, viewPhase – jede:r blättert unabhängig unter den
+   freigeschalteten Phasen). Nur das Freischalten einer neuen Phase nimmt den Coachee mit. */
+const PHASES = ['goal','reality','options','will'];
+let viewPhase = 'goal';
+let prevUnlocked = state.unlocked || 0;
+let headerCollapsed = false;
+try { if (localStorage.getItem('grow:hdr:' + (SESSION||'')) === '1') headerCollapsed = true; } catch(e){}
+try { const v = localStorage.getItem('grow:view:' + (SESSION||'')); if (v && PHASES.includes(v)) viewPhase = v; } catch(e){}
+if (PHASES.indexOf(viewPhase) > (state.unlocked||0)) viewPhase = PHASES[state.unlocked||0];
+function persistView(){ try { localStorage.setItem('grow:view:' + (SESSION||''), viewPhase); } catch(e){} }
+
 function render(opts={}){
   // Kopfzeile / Anheftung
   const header = $('#appHeader');
   header.classList.toggle('pinned', state.started);
+  header.classList.toggle('collapsed', headerCollapsed && ROLE === 'coach' && state.started);
   $('#pinGoal').textContent = state.fields.ziel || '–';
   const tabs = $('#tabs');
-  tabs.hidden = !(state.started && ROLE === 'coach');
+  tabs.hidden = !state.started;                 // Reiter jetzt auch für Coachee (zum Zurückblättern)
+  const hdrT = $('#hdrToggle');
+  if (hdrT){ hdrT.hidden = !(state.started && ROLE === 'coach'); hdrT.textContent = headerCollapsed ? '▸ Coaching' : '▾'; }
 
   // Textfelder – aktives Feld beim Sync nicht überschreiben
   const map = { thema:'in-thema', ziel:'in-ziel', prozess:'in-prozess',
@@ -972,13 +1009,21 @@ function render(opts={}){
     if (el.value !== state.fields[key]) el.value = state.fields[key];
   }
 
-  // Reiter-Status
-  $$('#tabs button').forEach(b =>
-    b.setAttribute('aria-selected', String(b.dataset.phase === state.phase)));
+  // Ansicht an den Fortschritt binden (nie weiter als freigeschaltet)
+  if (PHASES.indexOf(viewPhase) > (state.unlocked||0)) viewPhase = PHASES[state.unlocked||0];
 
-  // Phasen-Panels
-  $$('.phase').forEach(p =>
-    p.classList.toggle('active', p.dataset.phase === state.phase));
+  // Reiter-Status + Freischaltung: freigeschaltete Phasen navigierbar, spätere gesperrt
+  $$('#tabs button').forEach(b => {
+    const i = PHASES.indexOf(b.dataset.phase);
+    const locked = i > (state.unlocked||0);
+    b.setAttribute('aria-selected', String(b.dataset.phase === viewPhase));
+    b.classList.toggle('locked', locked);
+    b.classList.toggle('unlockable', locked && ROLE === 'coach');   // Coach kann freischalten
+    b.disabled = locked && ROLE === 'coachee';                      // Coachee nicht vorblättern
+  });
+
+  // Phasen-Panels nach LOKALER Ansicht
+  $$('.phase').forEach(p => p.classList.toggle('active', p.dataset.phase === viewPhase));
 
   // "Weiter" nur vor dem Start zeigen – danach wird über die Reiter navigiert
   $('.weiter-row').style.display = state.started ? 'none' : '';
@@ -2519,10 +2564,23 @@ $('#btnWeiter').addEventListener('click', () => {
   window.scrollTo({ top:0, behavior:'smooth' });
 });
 
-// Reiter wechseln (nur Coach)
+// Reiter: freigeschaltete Phasen lokal navigieren; der Coach schaltet gesperrte frei (synchron)
 $$('#tabs button').forEach(b => b.addEventListener('click', () => {
-  state.phase = b.dataset.phase; render(); broadcast();
+  const name = b.dataset.phase, i = PHASES.indexOf(name);
+  if (i <= (state.unlocked||0)){
+    viewPhase = name; persistView(); render();                 // lokal – ändert die Ansicht des anderen NICHT
+  } else if (ROLE === 'coach'){
+    state.unlocked = i; prevUnlocked = i;                      // Phase(n) freischalten -> nimmt den Coachee mit
+    viewPhase = name; persistView(); render(); broadcast();
+  }
 }));
+
+// Kopfzeile (Coachingziel + Phasen) ein-/ausklappen (Coach)
+$('#hdrToggle').addEventListener('click', () => {
+  headerCollapsed = !headerCollapsed;
+  try { localStorage.setItem('grow:hdr:' + (SESSION||''), headerCollapsed ? '1' : '0'); } catch(e){}
+  render();
+});
 
 $('#btnAddScale').addEventListener('click', () => addScale('reality'));
 $('#btnAddScaleGoal').addEventListener('click', () => addScale('goal'));
