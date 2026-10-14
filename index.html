@@ -108,11 +108,12 @@
   nav.tabs button .num{ display:block; font-size:.68rem; opacity:.6; }
   nav.tabs button[aria-selected="true"]{ color:var(--accent); border-bottom-color:var(--accent); }
   nav.tabs button:hover{ color:var(--ink); }
-  /* gesperrte / freischaltbare Phasen */
-  nav.tabs button.locked{ opacity:.4; cursor:default; }
-  nav.tabs button.locked::after{ content:"🔒"; font-size:.6rem; margin-left:4px; vertical-align:1px; }
-  nav.tabs button.unlockable{ opacity:.7; cursor:pointer; }
-  nav.tabs button.unlockable:hover{ opacity:1; color:var(--accent); }
+  /* noch nicht freigeschaltete Phasen bleiben verborgen; für den Coach ist die nächste
+     als dezente „freischalten"-Schaltfläche sichtbar */
+  nav.tabs button[hidden]{ display:none; }
+  nav.tabs button.next{ opacity:.5; cursor:pointer; }
+  nav.tabs button.next:hover{ opacity:1; color:var(--accent); }
+  nav.tabs button.next::after{ content:"＋"; margin-left:3px; color:var(--accent); font-weight:700; }
   nav.tabs button:disabled{ pointer-events:none; }
   /* Kopfzeile minimierbar (Coach) */
   .hdr-toggle{ position:absolute; top:7px; right:12px; z-index:21; border:1px solid var(--line);
@@ -580,7 +581,7 @@
 
 <!-- ---------- 2. HTML-Gerüst ---------- -->
 <header id="appHeader">
-  <button class="hdr-toggle coach-only" id="hdrToggle" title="Coachingziel & Phasen ein-/ausklappen" hidden>▾</button>
+  <button class="hdr-toggle" id="hdrToggle" title="Coachingziel & Phasen ein-/ausklappen" hidden>▾</button>
   <div class="pin">
     <div class="kicker">Coachingziel</div>
     <div class="goaltext" id="pinGoal">–</div>
@@ -992,12 +993,12 @@ function render(opts={}){
   // Kopfzeile / Anheftung
   const header = $('#appHeader');
   header.classList.toggle('pinned', state.started);
-  header.classList.toggle('collapsed', headerCollapsed && ROLE === 'coach' && state.started);
+  header.classList.toggle('collapsed', headerCollapsed && state.started);   // Minimieren in BEIDEN Rollen
   $('#pinGoal').textContent = state.fields.ziel || '–';
   const tabs = $('#tabs');
   tabs.hidden = !state.started;                 // Reiter jetzt auch für Coachee (zum Zurückblättern)
   const hdrT = $('#hdrToggle');
-  if (hdrT){ hdrT.hidden = !(state.started && ROLE === 'coach'); hdrT.textContent = headerCollapsed ? '▸ Coaching' : '▾'; }
+  if (hdrT){ hdrT.hidden = !state.started; hdrT.textContent = headerCollapsed ? '▸ Coaching' : '▾'; }
 
   // Textfelder – aktives Feld beim Sync nicht überschreiben
   const map = { thema:'in-thema', ziel:'in-ziel', prozess:'in-prozess',
@@ -1012,14 +1013,18 @@ function render(opts={}){
   // Ansicht an den Fortschritt binden (nie weiter als freigeschaltet)
   if (PHASES.indexOf(viewPhase) > (state.unlocked||0)) viewPhase = PHASES[state.unlocked||0];
 
-  // Reiter-Status + Freischaltung: freigeschaltete Phasen navigierbar, spätere gesperrt
+  // Reiter: freigeschaltete Phasen sichtbar & navigierbar; spätere verborgen.
+  // Der Coach sieht zusätzlich die NÄCHSTE Phase als „freischalten"-Schaltfläche.
+  const u = state.unlocked || 0;
   $$('#tabs button').forEach(b => {
     const i = PHASES.indexOf(b.dataset.phase);
-    const locked = i > (state.unlocked||0);
+    const isNext = (i === u + 1);
+    const show = (i <= u) || (ROLE === 'coach' && isNext);
+    b.hidden = !show;
+    b.disabled = false;
+    b.classList.toggle('next', ROLE === 'coach' && isNext && i > u);
+    b.title = (ROLE === 'coach' && isNext) ? 'Nächste Phase freischalten' : '';
     b.setAttribute('aria-selected', String(b.dataset.phase === viewPhase));
-    b.classList.toggle('locked', locked);
-    b.classList.toggle('unlockable', locked && ROLE === 'coach');   // Coach kann freischalten
-    b.disabled = locked && ROLE === 'coachee';                      // Coachee nicht vorblättern
   });
 
   // Phasen-Panels nach LOKALER Ansicht
