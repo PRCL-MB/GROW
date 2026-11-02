@@ -506,6 +506,18 @@
   .tetra-res .dot.on{ background:var(--accent); border-color:var(--accent); }
   @media (max-width:580px){ .tetra-grid{ grid-template-columns:1fr; } }
 
+  /* Tool-Vorschau beim Hovern über einen Tool-Button */
+  .tool-tip{ position:fixed; z-index:70; width:250px; max-width:82vw; background:var(--surface); color:var(--ink);
+    border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:10px; pointer-events:none;
+    opacity:0; transform:translateY(5px); transition:opacity .12s ease, transform .12s ease; }
+  .tool-tip[hidden]{ display:none; }
+  .tool-tip.show{ opacity:1; transform:none; }
+  .tool-tip .tt-title{ font-weight:700; font-size:.82rem; margin-bottom:5px; color:var(--accent); }
+  .tool-tip .tt-prev{ height:84px; background:color-mix(in srgb, var(--bg) 65%, var(--surface));
+    border:1px solid var(--line); border-radius:8px; margin-bottom:7px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .tool-tip .tt-prev svg{ width:100%; height:100%; display:block; }
+  .tool-tip .tt-desc{ font-size:.74rem; color:var(--ink-soft); line-height:1.45; }
+
   /* Elemente, die nur der Coach sieht */
   body[data-role="coachee"] .coach-only{ display:none !important; }
 
@@ -534,7 +546,7 @@
   @media print{
     header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .overlay, .item-del, .item-take, .export-row,
     .it-toolbar, .it-tray, .it-del, .it-grip, .it-pov, .it-empty,
-    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl, .en-add-row, .video-tile{ display:none !important; }
+    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl, .en-add-row, .video-tile, .tool-tip{ display:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -2607,6 +2619,74 @@ $('#btnAddWish').addEventListener('click', () => addWish('reality'));
 $('#btnAddWishOptions').addEventListener('click', () => addWish('options'));
 $('#btnAddTetra').addEventListener('click', () => addTetra('reality'));
 $('#btnAddTetraOptions').addEventListener('click', () => addTetra('options'));
+
+/* ==========================================================================
+   Tool-Vorschau: beim Hovern über einen Tool-Button eine kurze Beschreibung +
+   Mini-Vorschaubild (Inline-SVG, keine externen Assets) einblenden.
+   ========================================================================== */
+const TOOL_TIPS = {
+  scale:    { title:'Skala', desc:'Skala 0–10 oder 0–100 mit bis zu zwei Reglern – z. B. für Zuversicht, Zufriedenheit, Commitment. Endpunkte frei beschriftbar.',
+    svg:`<svg viewBox="0 0 120 70"><text x="60" y="17" text-anchor="middle" font-size="9" fill="#6b6b72">gar nicht ↔ voll</text><line x1="16" y1="43" x2="104" y2="43" stroke="#b9bfc4" stroke-width="4" stroke-linecap="round"/><circle cx="46" cy="43" r="8" fill="#4b6b7a" stroke="#fff" stroke-width="2"/><circle cx="82" cy="43" r="8" fill="#7a9a3f" stroke="#fff" stroke-width="2"/></svg>` },
+  biq:      { title:'BiQ – Beobachtung im Quadrat', desc:'Quadrat mit vier Feldern (Person · Beziehungen · Aufgaben · System); ein roter Punkt wird von beiden frei gesetzt.',
+    svg:`<svg viewBox="0 0 120 70"><rect x="36" y="8" width="52" height="52" rx="4" fill="none" stroke="#6b6b72" stroke-width="2"/><line x1="62" y1="8" x2="62" y2="60" stroke="#b9bfc4"/><line x1="36" y1="34" x2="88" y2="34" stroke="#b9bfc4"/><circle cx="74" cy="25" r="6" fill="#d63a3a" stroke="#fff" stroke-width="2"/></svg>` },
+  smart:    { title:'Zielkreuz – SMART', desc:'Das Coachingziel nach SMART schärfen: spezifisch, messbar, attraktiv, realistisch, terminiert – je mit Häkchen.',
+    svg:`<svg viewBox="0 0 120 70"><circle cx="60" cy="35" r="25" fill="none" stroke="#b9bfc4" stroke-width="2"/><circle cx="60" cy="35" r="15" fill="none" stroke="#b9bfc4" stroke-width="2"/><circle cx="60" cy="35" r="6" fill="#4b6b7a"/><line x1="60" y1="6" x2="60" y2="64" stroke="#b9bfc4"/><line x1="31" y1="35" x2="89" y2="35" stroke="#b9bfc4"/></svg>` },
+  wellform: { title:'Wohlgeformtes Ziel', desc:'Geführte Fragen zur Zielqualität: positiv formuliert, selbst erreichbar, woran merkbar, Kontext, Preis & Gewinn.',
+    svg:`<svg viewBox="0 0 120 70"><path d="M26 18 l4 4 l8 -9" fill="none" stroke="#7a9a3f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><line x1="42" y1="18" x2="96" y2="18" stroke="#b9bfc4" stroke-width="3" stroke-linecap="round"/><path d="M26 35 l4 4 l8 -9" fill="none" stroke="#7a9a3f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><line x1="42" y1="35" x2="96" y2="35" stroke="#b9bfc4" stroke-width="3" stroke-linecap="round"/><path d="M26 52 l4 4 l8 -9" fill="none" stroke="#7a9a3f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><line x1="42" y1="52" x2="96" y2="52" stroke="#b9bfc4" stroke-width="3" stroke-linecap="round"/></svg>` },
+  timeline: { title:'Zeitstrahl', desc:'Zeitstrahl von heute bis zum Ziel mit verschiebbaren Meilensteinen (Titel + bis wann).',
+    svg:`<svg viewBox="0 0 120 70"><line x1="14" y1="40" x2="106" y2="40" stroke="#b9bfc4" stroke-width="3" stroke-linecap="round"/><circle cx="14" cy="40" r="4" fill="#4b6b7a"/><circle cx="106" cy="40" r="4" fill="#4b6b7a"/><circle cx="44" cy="40" r="6" fill="#7a9a3f" stroke="#fff" stroke-width="2"/><circle cx="74" cy="40" r="6" fill="#7a9a3f" stroke="#fff" stroke-width="2"/><line x1="44" y1="25" x2="44" y2="34" stroke="#b9bfc4"/><line x1="74" y1="46" x2="74" y2="55" stroke="#b9bfc4"/></svg>` },
+  energy:   { title:'Energietopf', desc:'Füllstand 0–100 % einstellen und Energiequellen/-räuber sowie Booster für Zeiten erhöhten Bedarfs sammeln.',
+    svg:`<svg viewBox="0 0 120 70"><path d="M46 24 L74 24 L71 54 Q71 58 67 58 L53 58 Q49 58 49 54 Z" fill="#eef3f6" stroke="#6b6b72" stroke-width="2"/><path d="M49.4 40 L70.6 40 L71 54 Q71 58 67 58 L53 58 Q49 58 49 54 Z" fill="#7a9a3f"/><ellipse cx="60" cy="24" rx="14" ry="3.5" fill="none" stroke="#6b6b72" stroke-width="2"/><path d="M46 30 C40 31 40 40 46 41" fill="none" stroke="#6b6b72" stroke-width="2"/><path d="M74 30 C80 31 80 40 74 41" fill="none" stroke="#6b6b72" stroke-width="2"/></svg>` },
+  swot:     { title:'SWOT · Ressourcen & Hürden', desc:'Vier Felder für Stärken, Schwächen, Chancen und Risiken (Überschriften frei änderbar).',
+    svg:`<svg viewBox="0 0 120 70"><rect x="32" y="12" width="56" height="46" rx="4" fill="none" stroke="#6b6b72" stroke-width="2"/><line x1="60" y1="12" x2="60" y2="58" stroke="#b9bfc4"/><line x1="32" y1="35" x2="88" y2="35" stroke="#b9bfc4"/><text x="46" y="28" text-anchor="middle" font-size="11" fill="#7a9a3f">S</text><text x="74" y="28" text-anchor="middle" font-size="11" fill="#d63a3a">W</text><text x="46" y="51" text-anchor="middle" font-size="11" fill="#4b6b7a">O</text><text x="74" y="51" text-anchor="middle" font-size="11" fill="#b5824e">R</text></svg>` },
+  valuesq:  { title:'Wertequadrat', desc:'Schulz von Thun: positiver Wert ↔ positiver Gegenwert und ihre jeweiligen Übertreibungen; Diagonale = Entwicklung.',
+    svg:`<svg viewBox="0 0 120 70"><rect x="34" y="12" width="52" height="46" rx="4" fill="none" stroke="#6b6b72" stroke-width="2"/><line x1="60" y1="12" x2="60" y2="58" stroke="#b9bfc4"/><line x1="34" y1="35" x2="86" y2="35" stroke="#b9bfc4"/><line x1="47" y1="23" x2="73" y2="47" stroke="#7a9a3f" stroke-width="2"/><line x1="73" y1="23" x2="47" y2="47" stroke="#7a9a3f" stroke-width="2" stroke-dasharray="3 2"/></svg>` },
+  wheel:    { title:'Lebensrad', desc:'Lebensbereiche je 0–10 bewerten (ins Rad tippen) – das ausgefüllte Netz zeigt das Gesamtbild.',
+    svg:`<svg viewBox="0 0 120 70"><circle cx="60" cy="35" r="26" fill="none" stroke="#b9bfc4"/><circle cx="60" cy="35" r="13" fill="none" stroke="#e3e1da"/><g stroke="#e3e1da"><line x1="60" y1="35" x2="60" y2="9"/><line x1="60" y1="35" x2="82.5" y2="22"/><line x1="60" y1="35" x2="82.5" y2="48"/><line x1="60" y1="35" x2="60" y2="61"/><line x1="60" y1="35" x2="37.5" y2="48"/><line x1="60" y1="35" x2="37.5" y2="22"/></g><polygon points="60,15 68.7,30 80.8,47 60,49 53,39 44.4,26" fill="rgba(75,107,122,.3)" stroke="#4b6b7a" stroke-width="1.5"/></svg>` },
+  relmap:   { title:'Beziehungskarte', desc:'Personen/Rollen als Knoten frei platzieren und verbinden (nah/Spannung); Stakeholder-/Systembild.',
+    svg:`<svg viewBox="0 0 120 70"><line x1="40" y1="24" x2="80" y2="24" stroke="#4b6b7a" stroke-width="2"/><line x1="42" y1="30" x2="60" y2="50" stroke="#4b6b7a" stroke-width="2" stroke-dasharray="3 2"/><circle cx="40" cy="24" r="9" fill="var(--surface)" stroke="#4b6b7a" stroke-width="2"/><circle cx="80" cy="24" r="9" fill="var(--surface)" stroke="#4b6b7a" stroke-width="2"/><circle cx="60" cy="52" r="9" fill="var(--surface)" stroke="#4b6b7a" stroke-width="2"/></svg>` },
+  wish:     { title:'Wunschelemente (ZRM)', desc:'Zürcher Ressourcen Modell: Ideenkorb sammeln, Wunschelemente markieren (♥), Motto-Ziel formulieren.',
+    svg:`<svg viewBox="0 0 120 70"><path d="M30 17 c-3 -4 -10 -1 -10 4 c0 5 10 10 10 10 c0 0 10 -5 10 -10 c0 -5 -7 -8 -10 -4 z" fill="#d63a3a"/><line x1="46" y1="24" x2="100" y2="24" stroke="#b9bfc4" stroke-width="3" stroke-linecap="round"/><line x1="22" y1="44" x2="100" y2="44" stroke="#e3e1da" stroke-width="3" stroke-linecap="round"/><line x1="22" y1="56" x2="100" y2="56" stroke="#e3e1da" stroke-width="3" stroke-linecap="round"/></svg>` },
+  tetra:    { title:'Tetralemma', desc:'Systemisch: Das Eine · Das Andere · Beides · Keines von beidem · … all dies nicht. Positionen nacheinander freischaltbar.',
+    svg:`<svg viewBox="0 0 120 70"><rect x="40" y="8" width="18" height="14" rx="3" fill="none" stroke="#4b6b7a" stroke-width="2"/><rect x="62" y="8" width="18" height="14" rx="3" fill="none" stroke="#4b6b7a" stroke-width="2"/><rect x="40" y="26" width="18" height="14" rx="3" fill="none" stroke="#4b6b7a" stroke-width="2"/><rect x="62" y="26" width="18" height="14" rx="3" fill="none" stroke="#4b6b7a" stroke-width="2"/><rect x="40" y="46" width="40" height="14" rx="3" fill="none" stroke="#7a9a3f" stroke-width="2" stroke-dasharray="4 2"/></svg>` },
+  team:     { title:'Inneres Team', desc:'Figuren auf einem 3D-Brett aufstellen (Holz/Stein), Titel + Eigenschaften, Perspektivwechsel, Team duplizieren.',
+    svg:`<svg viewBox="0 0 120 70"><line x1="26" y1="54" x2="94" y2="54" stroke="#b9bfc4" stroke-width="2"/><circle cx="40" cy="30" r="6" fill="#b5824e"/><path d="M32 54 C32 42 48 42 48 54 Z" fill="#b5824e"/><circle cx="60" cy="27" r="7" fill="#9c5e33"/><path d="M51 54 C51 40 69 40 69 54 Z" fill="#9c5e33"/><circle cx="80" cy="32" r="5" fill="#c99a5b"/><path d="M73 54 C73 44 87 44 87 54 Z" fill="#c99a5b"/></svg>` },
+  option:   { title:'Option', desc:'Ideen/Optionen sammeln und mit Sternen (0–5) priorisieren; optional zwei Achsen + Matrix, „→ Will".',
+    svg:`<svg viewBox="0 0 120 70"><line x1="20" y1="24" x2="66" y2="24" stroke="#b9bfc4" stroke-width="3" stroke-linecap="round"/><text x="100" y="29" text-anchor="end" font-size="14" fill="#d8a531">★★★</text><line x1="20" y1="46" x2="66" y2="46" stroke="#e3e1da" stroke-width="3" stroke-linecap="round"/><text x="100" y="51" text-anchor="end" font-size="14" fill="#d8a531">★★☆</text></svg>` },
+  action:   { title:'Maßnahme', desc:'Konkrete nächste Schritte mit „bis wann" und Erledigt-Haken.',
+    svg:`<svg viewBox="0 0 120 70"><rect x="22" y="16" width="12" height="12" rx="2" fill="none" stroke="#4b6b7a" stroke-width="2"/><path d="M24 22 l3 3 l6 -7" fill="none" stroke="#7a9a3f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="42" y1="22" x2="80" y2="22" stroke="#b9bfc4" stroke-width="3" stroke-linecap="round"/><text x="100" y="26" text-anchor="end" font-size="8" fill="#6b6b72">bis…</text><rect x="22" y="40" width="12" height="12" rx="2" fill="none" stroke="#4b6b7a" stroke-width="2"/><line x1="42" y1="46" x2="80" y2="46" stroke="#e3e1da" stroke-width="3" stroke-linecap="round"/></svg>` }
+};
+const TIP_BY_BTN = {
+  btnAddScale:'scale', btnAddScaleGoal:'scale', btnAddScaleOptions:'scale', btnAddScaleWill:'scale',
+  btnAddBiq:'biq', btnAddBiqGoal:'biq', btnAddSmart:'smart', btnAddWellform:'wellform', btnAddTimeline:'timeline',
+  btnAddEnergy:'energy', btnAddEnergyGoal:'energy', btnAddSwot:'swot', btnAddValuesq:'valuesq', btnAddWheel:'wheel',
+  btnAddRelmap:'relmap', btnAddWish:'wish', btnAddWishOptions:'wish', btnAddTetra:'tetra', btnAddTetraOptions:'tetra',
+  btnAddTeam:'team', btnAddOption:'option', btnAddAction:'action'
+};
+(function toolTips(){
+  const tip = document.createElement('div'); tip.className = 'tool-tip'; tip.hidden = true; document.body.appendChild(tip);
+  let hideTimer = null;
+  function show(btn, key){
+    const t = TOOL_TIPS[key]; if(!t) return;
+    clearTimeout(hideTimer);
+    tip.innerHTML = `<div class="tt-title">${escapeHtml(t.title)}</div><div class="tt-prev">${t.svg}</div><div class="tt-desc">${escapeHtml(t.desc)}</div>`;
+    tip.hidden = false;
+    const r = btn.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = Math.max(8, Math.min(innerWidth - tw - 8, r.left + r.width/2 - tw/2));
+    let top = r.top - th - 10; if(top < 8) top = r.bottom + 10;
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    requestAnimationFrame(() => tip.classList.add('show'));
+  }
+  function hide(){ tip.classList.remove('show'); hideTimer = setTimeout(() => { tip.hidden = true; }, 160); }
+  Object.keys(TIP_BY_BTN).forEach(id => {
+    const b = document.getElementById(id); if(!b) return;
+    const key = TIP_BY_BTN[id];
+    b.addEventListener('mouseenter', () => show(b, key));
+    b.addEventListener('mouseleave', hide);
+    b.addEventListener('focus', () => show(b, key));
+    b.addEventListener('blur', hide);
+  });
+})();
 $('#btnAddOption').addEventListener('click', addOption);
 $('#btnAddAction').addEventListener('click', addAction);
 $('#btnExport').addEventListener('click', exportPdf);
