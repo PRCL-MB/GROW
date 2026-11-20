@@ -504,6 +504,21 @@
   .tetra-res .rlab{ font-size:.64rem; color:var(--ink-soft); margin-right:2px; }
   .tetra-res .dot{ width:11px; height:11px; border-radius:50%; border:1.5px solid var(--line); cursor:pointer; }
   .tetra-res .dot.on{ background:var(--accent); border-color:var(--accent); }
+  /* Fokus-Modus: ein Feld maximieren, die anderen überblenden (erst wenn alle 5 sichtbar) */
+  .tetra-grid{ position:relative; }
+  .tetra-cell{ position:relative; }
+  .btn-focus{ position:absolute; top:6px; right:6px; width:24px; height:24px; border:1px solid var(--line); border-radius:7px; background:var(--surface); color:var(--ink-soft); font-size:.9rem; line-height:1; cursor:pointer; display:none; align-items:center; justify-content:center; padding:0; z-index:4; }
+  .btn-focus:hover{ color:var(--accent); border-color:var(--accent); }
+  .tetra-tool.all-revealed .btn-focus{ display:flex; }
+  .tetra-grid.focusing .tetra-cell:not(.focus-on) .btn-focus{ display:none; }
+  .tetra-dim{ position:absolute; inset:0; border-radius:10px; background:color-mix(in srgb, var(--bg) 66%, transparent); backdrop-filter:blur(2px); z-index:2; cursor:pointer; animation:fade .18s ease; }
+  .tetra-grid.focusing{ min-height:min(62vh,360px); }
+  .tetra-cell.focus-on{ position:absolute; inset:0; margin:0; z-index:3; display:flex; flex-direction:column; overflow:auto; box-shadow:0 12px 40px rgba(20,20,24,.22); animation:fade .2s ease; }
+  .tetra-cell.focus-on .tetra-lab{ font-size:1.3rem; }
+  .tetra-cell.focus-on .tetra-sub{ font-size:.86rem; margin:2px 0 12px; }
+  .tetra-cell.focus-on textarea{ flex:1; min-height:140px; font-size:1.08rem; line-height:1.55; }
+  .tetra-cell.focus-on .tetra-res{ margin-top:10px; }
+  .tetra-cell.focus-on .btn-focus{ width:30px; height:30px; font-size:1.05rem; }
   @media (max-width:580px){ .tetra-grid{ grid-template-columns:1fr; } }
 
   /* Tool-Vorschau beim Hovern über einen Tool-Button */
@@ -546,7 +561,10 @@
   @media print{
     header, nav.tabs, .rolebar, .coach-only, .weiter-row, .add-tool-row, .range-toggle, .overlay, .item-del, .item-take, .export-row,
     .it-toolbar, .it-tray, .it-del, .it-grip, .it-pov, .it-empty,
-    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl, .en-add-row, .video-tile, .tool-tip{ display:none !important; }
+    .tl-pdel, .rel-toolbar .btn, .rel-ndel, .rel-ldel, .rel-hint, .wheel-seg-ctrl, .en-add-row, .video-tile, .tool-tip, .btn-focus, .tetra-dim{ display:none !important; }
+    /* Fokus-Modus nicht in den PDF-Export übernehmen – alle Felder normal zeigen */
+    .tetra-grid.focusing{ min-height:0 !important; }
+    .tetra-cell.focus-on{ position:static !important; inset:auto !important; box-shadow:none !important; }
     body{ background:#fff; }
     main{ max-width:none; padding:0; }
     .phase{ display:block !important; page-break-after:always; padding-top:8px; }
@@ -2504,22 +2522,25 @@ const TETRA_POS = [
   ['Keines von beidem','Etwas ganz anderes – jenseits der Alternative'],
   ['… all dies nicht – und selbst das nicht','Die lösende Haltung: das ganze Feld loslassen']
 ];
-function addTetra(phase){ state.tetra.push({ id:'te'+Date.now(), phase, question:'', revealed:1, positions:TETRA_POS.map(()=>({text:'',res:0})) }); render(); broadcast(); }
+function addTetra(phase){ state.tetra.push({ id:'te'+Date.now(), phase, question:'', revealed:1, focus:-1, positions:TETRA_POS.map(()=>({text:'',res:0})) }); render(); broadcast(); }
 function renderTetra(opts={}){
   renderTetraList($('#tetraList'),        'reality');
   renderTetraList($('#tetraListOptions'), 'options');
 }
 function renderTetraList(list, phase){ listRebuild(list, state.tetra.filter(x=>(x.phase||'reality')===phase), buildTetraEl, updateTetraEl); }
 function buildTetraEl(o){
-  const el=document.createElement('div'); el.className='tool'; el.dataset.id=o.id;
+  const el=document.createElement('div'); el.className='tool tetra-tool'; el.dataset.id=o.id;
   el.innerHTML = `<div class="tool-top"><span class="tool-title">Tetralemma</span>`+
     `<button class="btn ghost small coach-only js-del">Entfernen</button></div>`+
     `<input class="text tetra-q" placeholder="Die Frage / das Dilemma (Entweder-oder) …">`+
     `<div class="tetra-grid">`+
-      TETRA_POS.map((p,i)=>`<div class="tetra-cell${i===4?' tetra-5':''}"><div class="tetra-lab">${p[0]}</div>`+
+      TETRA_POS.map((p,i)=>`<div class="tetra-cell${i===4?' tetra-5':''}">`+
+        `<button class="btn-focus js-tetra-focus" data-i="${i}" title="Feld maximieren" aria-label="Feld maximieren">⤢</button>`+
+        `<div class="tetra-lab">${p[0]}</div>`+
         `<div class="tetra-sub">${p[1]}</div><textarea data-i="${i}" placeholder="…"></textarea>`+
         `<div class="tetra-res"><span class="rlab">spürbar:</span>`+
           [1,2,3].map(n=>`<span class="dot" data-i="${i}" data-n="${n}"></span>`).join('')+`</div></div>`).join('')+
+      `<div class="tetra-dim" hidden></div>`+
     `</div>`+
     `<div class="tetra-reveal coach-only">`+
       `<button class="btn ghost small js-tetra-less">− ausblenden</button>`+
@@ -2534,6 +2555,11 @@ function buildTetraEl(o){
   $$('.tetra-cell textarea',el).forEach(t=>t.addEventListener('input',()=>{ const o=live(); if(!o)return; o.positions[+t.dataset.i].text=t.value; broadcast(); }));
   $$('.tetra-res .dot',el).forEach(d=>d.addEventListener('click',()=>{ const o=live(); if(!o)return;
     const i=+d.dataset.i, n=+d.dataset.n; o.positions[i].res=(o.positions[i].res===n)?n-1:n; updateTetraEl(o); broadcast(); }));
+  // Fokus-Modus: ein Feld maximieren, andere überblenden (nur wenn alle 5 sichtbar sind)
+  $$('.js-tetra-focus',el).forEach(b=>b.addEventListener('click',()=>{ const o=live(); if(!o)return;
+    if((o.revealed||1)<5) return; const i=+b.dataset.i;
+    o.focus=((o.focus??-1)===i)?-1:i; updateTetraEl(o); broadcast(); }));
+  $('.tetra-dim',el).addEventListener('click',()=>{ const o=live(); if(!o)return; o.focus=-1; updateTetraEl(o); broadcast(); });
   return el;
 }
 function updateTetraEl(o){
@@ -2548,6 +2574,20 @@ function updateTetraEl(o){
   const more=$('.js-tetra-more',el), less=$('.js-tetra-less',el);
   if(more) more.disabled=rev>=5;
   if(less) less.disabled=rev<=1;
+  // Fokus-Modus: nur möglich, wenn alle 5 Positionen sichtbar sind
+  const allRev = rev>=5;
+  el.classList.toggle('all-revealed', allRev);
+  let fi = allRev ? (o.focus??-1) : -1;
+  if(fi>=rev) fi=-1;
+  const grid=$('.tetra-grid',el), dim=$('.tetra-dim',el);
+  if(grid) grid.classList.toggle('focusing', fi>=0);
+  if(dim) dim.hidden = !(fi>=0);
+  $$('.tetra-cell',el).forEach((c,i)=>{
+    const on = (i===fi);
+    c.classList.toggle('focus-on', on);
+    const fb=$('.js-tetra-focus',c);
+    if(fb){ fb.textContent = on?'⤡':'⤢'; fb.title = on?'Verkleinern':'Feld maximieren'; }
+  });
 }
 
 /* ==========================================================================
